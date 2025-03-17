@@ -1,0 +1,56 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3030:3000"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    volumes:
+      # For production, you might want to exclude volumes to use the built image as is
+      []
+    networks:
+      - chazara-network
+
+  # API server for development
+  api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3032:3000"  # Changed from 3030 to 3032 to avoid conflict
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    volumes:
+      - ./:/usr/src/app
+      - /usr/src/app/node_modules
+    command: npm run dev
+    networks:
+      - chazara-network
+
+  # React development server
+  react-dev:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3031:3000"  # React dev server on port 3031
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - REACT_APP_API_URL=http://localhost:3032  # Updated to match api-dev port
+    volumes:
+      - ./client:/usr/src/app
+      - /usr/src/app/node_modules
+    command: npm start
+    depends_on:
+      - api-dev
+    networks:
+      - chazara-network
+
+networks:
+  chazara-network:
+    driver: bridge
