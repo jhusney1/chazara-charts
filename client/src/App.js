@@ -38,21 +38,45 @@ function App() {
 
   return (
     <LanguageContext.Provider value={{ language, toggleLanguage }}>
-      <div className="min-h-screen flex flex-col">
-        <ToastContainer position="top-right" autoClose={5000} />
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <ToastContainer 
+          position="top-right" 
+          autoClose={5000} 
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={language === 'he'}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+          toastClassName="rounded-lg shadow-lg"
+        />
         <Header />
-        <main className="flex-grow container mx-auto px-4 py-8">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-8">
-              <h1 className="text-primary-800 mb-4">Chazara Charts</h1>
-              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+        <main className="flex-grow container mx-auto px-4 py-12">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-10">
+              <div className="mb-4 flex justify-center">
+                <div className="relative">
+                  <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-700 to-purple-700 inline-block">
+                    Chazara Charts
+                  </h1>
+                  <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full"></div>
+                </div>
+              </div>
+              <p className="text-lg text-gray-700 max-w-2xl mx-auto">
                 Generate personalized Talmud study review charts to track your learning progress.
               </p>
             </div>
             
             {loading ? (
-              <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+              <div className="flex justify-center items-center py-16">
+                <div className="relative">
+                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-4 border-t-indigo-600"></div>
+                  <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
+                    <div className="h-8 w-8 bg-white rounded-full"></div>
+                  </div>
+                </div>
               </div>
             ) : (
               <ChartForm tractateData={tractateData} />

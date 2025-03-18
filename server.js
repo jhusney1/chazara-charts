@@ -110,7 +110,16 @@ app.get('/', (req, res) => {
 
 app.post('/api/create-excel', async (req, res) => {
   try {
-    const { tractates = [], reviews = 3, pages = [], useHebrew = false } = req.body;
+    const { 
+      tractates = [], 
+      reviews = 3, 
+      pages = [], 
+      useHebrew = false,
+      columnsPerPage = 1,
+      includeDateColumn = true,
+      startDate = new Date().toISOString().split('T')[0],
+      dafPerDay = false
+    } = req.body;
     
     if (!tractates.length) {
       return res.status(400).json({ error: 'Please provide at least one tractate' });
@@ -127,141 +136,114 @@ app.post('/api/create-excel', async (req, res) => {
     tractates.forEach(tractate => {
       const worksheet = workbook.addWorksheet(tractate);
       
-      // Define column headers directly
-      const headers = ['Daf', 'Date'];
-      for (let i = 1; i <= reviews; i++) {
-        headers.push(`${i}`);
-      }
+      // Calculate how many items each column should contain
+      const columnsPerPageValue = parseInt(columnsPerPage);
+      const itemsPerColumn = Math.ceil(pages.length / columnsPerPageValue);
       
-      // Add the header row
-      worksheet.addRow(headers);
-      
-      // Set column widths - make them narrower to fit more on a page
-      worksheet.getColumn(1).width = 6; // Daf column
-      worksheet.getColumn(2).width = 10; // Date column
-      
-      // Set widths for review columns - make them square-like
-      for (let i = 3; i <= reviews + 2; i++) {
-        worksheet.getColumn(i).width = 6;
-      }
-      
-      // Add data for the requested pages
-      if (pages.length > 0) {
-        pages.forEach(page => {
-          // Extract the daf number and amud
-          const match = page.match(/(\d+)([ab])/);
-          if (match) {
-            const dafNum = match[1];
-            const amud = match[2];
-            
-            // If Hebrew is requested, convert the page number and add appropriate dots
-            let displayPage;
-            if (useHebrew) {
-              const hebrewNum = convertToHebrew(dafNum);
-              displayPage = amud === 'a' ? `· ${hebrewNum}` : `: ${hebrewNum}`;
-            } else {
-              displayPage = page;
-            }
-            
-            const rowData = [displayPage];
-            // Add empty cells for date and reviews
-            for (let i = 0; i < reviews + 1; i++) {
-              rowData.push('');
-            }
-            worksheet.addRow(rowData);
-          } else {
-            // If the page format is not recognized, just display as is
-            const displayPage = useHebrew ? convertToHebrew(page) : page;
-            const rowData = [displayPage];
-            for (let i = 0; i < reviews + 1; i++) {
-              rowData.push('');
-            }
-            worksheet.addRow(rowData);
-          }
-        });
-      } else {
-        // Add all pages for the tractate
-        const maxPages = tractateData[tractate] || 20;
-        for (let i = 1; i <= maxPages; i++) {
-          // For Hebrew, use dots to indicate amud: one dot (.) for amud alef, two dots (:) for amud bet
-          const amudA = useHebrew ? `. ${convertToHebrew(i.toString())}` : `${i}a`;
-          const amudB = useHebrew ? `: ${convertToHebrew(i.toString())}` : `${i}b`;
-          
-          // Add row for amud A
-          const rowDataA = [amudA];
-          for (let j = 0; j < reviews + 1; j++) {
-            rowDataA.push('');
-          }
-          worksheet.addRow(rowDataA);
-          
-          // Add row for amud B
-          const rowDataB = [amudB];
-          for (let j = 0; j < reviews + 1; j++) {
-            rowDataB.push('');
-          }
-          worksheet.addRow(rowDataB);
-        }
-      }
-      
-      // Style the header row - simple styling
-      worksheet.getRow(1).font = { bold: true };
-      worksheet.getRow(1).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: '4338CA' } // Match the PDF primary color
-      };
-      worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFF' } }; // White text
-      worksheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
-      
-      // Add borders to all cells and center-align them
-      const totalRows = worksheet.rowCount;
-      const totalCols = reviews + 2; // Daf + Date + Review columns
-      
-      for (let row = 1; row <= totalRows; row++) {
-        // Set row height to be smaller
-        worksheet.getRow(row).height = 15;
+      // Create all columns
+      for (let colIndex = 0; colIndex < columnsPerPageValue; colIndex++) {
+        // Calculate starting column for this section
+        const colOffset = colIndex * (includeDateColumn ? reviews + 2 : reviews + 1);
         
-        for (let col = 1; col <= totalCols; col++) {
-          const cell = worksheet.getCell(row, col);
-          
-          // Add borders
-          cell.border = {
-            top: { style: 'thin' },
-            left: { style: 'thin' },
-            bottom: { style: 'thin' },
-            right: { style: 'thin' }
+        // Define headers for this column set
+        const headers = [];
+        headers.push(`Daf ${colIndex + 1}`); // Add column number to distinguish multiple daf columns
+        
+        if (includeDateColumn) {
+          headers.push(`Date ${colIndex + 1}`);
+        }
+        
+        for (let i = 1; i <= reviews; i++) {
+          headers.push(`${i} ${colIndex + 1}`);
+        }
+        
+        // Add the headers to the correct columns
+        for (let i = 0; i < headers.length; i++) {
+          const cell = worksheet.getCell(1, colOffset + i + 1);
+          cell.value = headers[i];
+          cell.font = { bold: true, color: { argb: 'FFFFFF' } };
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: '4338CA' }
           };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
           
-          // Center align all cells
-          cell.alignment = { 
-            vertical: 'middle', 
-            horizontal: col === 1 ? 'center' : 'center' // Center all columns
-          };
+          // Set column width
+          if (i === 0) {
+            worksheet.getColumn(colOffset + i + 1).width = 6; // Daf column
+          } else if (includeDateColumn && i === 1) {
+            worksheet.getColumn(colOffset + i + 1).width = 10; // Date column
+          } else {
+            worksheet.getColumn(colOffset + i + 1).width = 6; // Review columns
+          }
+        }
+        
+        // Calculate which pages go in this column
+        const startIndex = colIndex * itemsPerColumn;
+        const endIndex = Math.min(startIndex + itemsPerColumn, pages.length);
+        const columnPages = pages.slice(startIndex, endIndex);
+        
+        // Starting date for this column
+        let currentDate = new Date(startDate);
+        currentDate.setDate(currentDate.getDate() + startIndex);
+        
+        // Add data for this column
+        columnPages.forEach((page, rowIndex) => {
+          const row = rowIndex + 2; // +2 because row 1 is headers
           
-          // For review columns (col > 2), add a checkbox-like format
-          if (row > 1 && col > 2) {
-            // Make these cells look like they're meant for checkmarks
-            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          // Add daf
+          const dafCell = worksheet.getCell(row, colOffset + 1);
+          dafCell.value = page;
+          
+          // Add date if enabled
+          if (includeDateColumn) {
+            const dateCell = worksheet.getCell(row, colOffset + 2);
+            dateCell.value = currentDate.toLocaleDateString();
+            currentDate.setDate(currentDate.getDate() + 1);
           }
           
-          // Add alternating row colors
-          if (row > 1 && row % 2 === 0) {
-            cell.fill = {
+          // Style the row
+          const rowStyle = {
+            fill: {
               type: 'pattern',
               pattern: 'solid',
-              fgColor: { argb: 'F3F4F6' } // Light gray for even rows
+              fgColor: { argb: rowIndex % 2 === 0 ? 'F3F4F6' : 'FFFFFF' }
+            }
+          };
+          
+          // Apply borders and styling to all cells in the row
+          const totalCols = includeDateColumn ? reviews + 2 : reviews + 1;
+          
+          for (let i = 0; i < totalCols; i++) {
+            const cell = worksheet.getCell(row, colOffset + i + 1);
+            
+            // Add borders
+            cell.border = {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' }
             };
+            
+            // Center align all cells
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            
+            // Add alternating row colors
+            if (rowIndex % 2 === 0) {
+              cell.fill = rowStyle.fill;
+            }
           }
-        }
+        });
       }
       
-      // Set print options to fit more on a page
+      // Set print options
       worksheet.pageSetup = {
         orientation: 'landscape',
         fitToPage: true,
         fitToWidth: 1,
-        fitToHeight: 0, // Auto fit to height
-        paperSize: 9, // A4
+        fitToHeight: 0,
+        paperSize: 9,
         horizontalCentered: true,
         margins: {
           left: 0.25,
@@ -279,11 +261,11 @@ app.post('/api/create-excel', async (req, res) => {
       ];
     });
     
-    // Set the response headers for file download
+    // Set response headers
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${tractates[0]}-chazara-chart.xlsx"`);
     
-    // Write the workbook to the response
+    // Write the workbook
     await workbook.xlsx.write(res);
     res.end();
     
@@ -296,13 +278,22 @@ app.post('/api/create-excel', async (req, res) => {
 // PDF Generation endpoint
 app.post('/api/create-pdf', async (req, res) => {
   try {
-    const { tractates = [], reviews = 3, pages = [], useHebrew = false } = req.body;
+    const { 
+      tractates = [], 
+      reviews = 3, 
+      pages = [], 
+      useHebrew = false,
+      columnsPerPage = 1,
+      includeDateColumn = true,
+      startDate = new Date().toISOString().split('T')[0],
+      dafPerDay = false
+    } = req.body;
     
     if (!tractates.length) {
       return res.status(400).json({ error: 'Please provide at least one tractate' });
     }
     
-    // Create a new PDF document with UTF-8 encoding
+    // Create a new PDF document
     const doc = new PDFDocument({ 
       layout: 'landscape',
       margin: 30,
@@ -316,7 +307,7 @@ app.post('/api/create-pdf', async (req, res) => {
       }
     });
     
-    // Set response headers for PDF download
+    // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${tractates[0]}-chazara-chart.pdf"`);
     
@@ -324,50 +315,20 @@ app.post('/api/create-pdf', async (req, res) => {
     doc.pipe(res);
     
     // Define colors
-    const primaryColor = '#4338ca'; // Indigo 700
-    const secondaryColor = '#f59e0b'; // Amber 500
-    const lightGray = '#f3f4f6'; // Gray 100
-    const darkGray = '#4b5563'; // Gray 600
+    const primaryColor = '#4338ca';
+    const secondaryColor = '#f59e0b';
+    const lightGray = '#f3f4f6';
+    const darkGray = '#4b5563';
     const white = '#ffffff';
     
-    // Helper function to draw a book icon
-    const drawBookIcon = (x, y, size = 40) => {
-      // Save the current graphics state
-      doc.save();
-      
-      // Book cover
-      doc.rect(x, y, size, size * 0.8)
-         .fillColor(secondaryColor)
-         .fill();
-      
-      // Book spine
-      doc.rect(x - size * 0.1, y + size * 0.1, size * 0.1, size * 0.6)
-         .fillColor(primaryColor)
-         .fill();
-      
-      // Book pages (white lines)
-      doc.lineWidth(1)
-         .strokeColor(white);
-      
-      for (let i = 1; i <= 5; i++) {
-        const lineY = y + (size * 0.2) + (i * size * 0.1);
-        doc.moveTo(x + size * 0.2, lineY)
-           .lineTo(x + size * 0.8, lineY)
-           .stroke();
-      }
-      
-      // Restore the graphics state
-      doc.restore();
-    };
-    
-    // For each tractate, create a table
+    // Handle each tractate
     tractates.forEach((tractate, tractateIndex) => {
       // Add a new page for each tractate except the first one
       if (tractateIndex > 0) {
         doc.addPage();
       }
       
-      // Add simple header
+      // Add header
       doc.rect(0, 0, doc.page.width, 40)
          .fill(primaryColor);
       
@@ -387,385 +348,144 @@ app.post('/api/create-pdf', async (req, res) => {
       doc.fontSize(10)
          .text(`Generated on ${today}`, doc.page.width - 200, 15);
       
-      // Move down to start the table
-      const startY = 50; // Reduced from 100
-      let yPos = startY;
+      // Calculate column width based on columnsPerPage
+      const totalWidth = doc.page.width - 60; // Total available width
+      const contentWidth = totalWidth / parseInt(columnsPerPage);
       
-      // Calculate column widths - make them narrower to fit more
-      const pageWidth = doc.page.width - 60; // Accounting for margins
-      const dafColWidth = pageWidth * 0.08; // Even smaller
-      const dateColWidth = pageWidth * 0.12; // Even smaller
-      const reviewColWidth = pageWidth * 0.06; // Make review columns square-like
+      // Define pages to display
+      const pagesToDisplay = pages.length > 0 ? pages : [];
       
-      // Starting position
-      let xPos = 30;
-      
-      // Draw header row
-      doc.rect(xPos, yPos, pageWidth, 25) // Reduced height
-         .fill(primaryColor);
-      
-      // Reset position for text
-      doc.fillColor(white);
-      
-      // Draw header text
-      doc.font('Helvetica-Bold')
-         .fontSize(10) // Even smaller font
-         .text('Daf', xPos + 5, yPos + 8, { width: dafColWidth - 10, align: 'center' });
-      
-      xPos += dafColWidth;
-      
-      doc.text('Date', xPos + 5, yPos + 8, { width: dateColWidth - 10, align: 'center' });
-      
-      xPos += dateColWidth;
-      
-      for (let i = 1; i <= reviews; i++) {
-        doc.text(`${i}`, xPos + 5, yPos + 8, { width: reviewColWidth - 10, align: 'center' });
-        xPos += reviewColWidth;
-      }
-      
-      // Calculate remaining width for second set of columns
-      const remainingWidth = pageWidth - (dafColWidth + dateColWidth + (reviewColWidth * reviews));
-      
-      // If we have enough space, add a second set of columns
-      if (remainingWidth > 100 && tractateData[tractate] > 20) {
-        // Add a small gap
-        xPos += 10;
+      // Add table for each column
+      for (let colIndex = 0; colIndex < parseInt(columnsPerPage); colIndex++) {
+        const colXOffset = 30 + (colIndex * contentWidth);
         
-        // Draw second set of headers
-        doc.text('Daf', xPos + 5, yPos + 8, { width: dafColWidth - 10, align: 'center' });
+        let yPos = 50; // Start y position
+        
+        // Calculate width for each subcolumn
+        const dafColWidth = contentWidth * 0.1;
+        const dateColWidth = includeDateColumn ? contentWidth * 0.15 : 0;
+        const remainingWidth = contentWidth - dafColWidth - dateColWidth;
+        const reviewColWidth = remainingWidth / reviews;
+        
+        // Draw header row
+        doc.rect(colXOffset, yPos, contentWidth, 20)
+           .fill(primaryColor);
+        
+        // Add column headers
+        let xPos = colXOffset;
+        
+        // Draw header text
+        doc.fillColor(white)
+           .fontSize(9)
+           .font('Helvetica-Bold')
+           .text('Daf', xPos + 2, yPos + 6, { width: dafColWidth - 4, align: 'center' });
         
         xPos += dafColWidth;
         
-        doc.text('Date', xPos + 5, yPos + 8, { width: dateColWidth - 10, align: 'center' });
-        
-        xPos += dateColWidth;
+        if (includeDateColumn) {
+          doc.text('Date', xPos + 2, yPos + 6, { width: dateColWidth - 4, align: 'center' });
+          xPos += dateColWidth;
+        }
         
         for (let i = 1; i <= reviews; i++) {
-          doc.text(`${i}`, xPos + 5, yPos + 8, { width: reviewColWidth - 10, align: 'center' });
+          doc.text(`${i}`, xPos + 2, yPos + 6, { width: reviewColWidth - 4, align: 'center' });
           xPos += reviewColWidth;
-        }
-      }
-      
-      // Move to next row
-      yPos += 25; // Reduced height
-      
-      // Get pages to display
-      const pagesToDisplay = [];
-      
-      if (pages.length > 0) {
-        // Use provided pages
-        pages.forEach(page => {
-          pagesToDisplay.push({ daf: page });
-        });
-      } else {
-        // Generate default pages
-        const maxPages = tractateData[tractate] || 20;
-        for (let i = 1; i <= maxPages; i++) {
-          pagesToDisplay.push({ daf: `${i}a` });
-          pagesToDisplay.push({ daf: `${i}b` });
-        }
-      }
-      
-      // Calculate how many rows we can fit on a page
-      const rowHeight = 18; // Even smaller height
-      const availableHeight = doc.page.height - yPos - 30; // Available space minus footer
-      const rowsPerPage = Math.floor(availableHeight / rowHeight);
-      
-      // Determine if we should use two columns
-      const useDoubleColumns = remainingWidth > 100 && tractateData[tractate] > 20;
-      const pagesPerRow = useDoubleColumns ? 2 : 1;
-      const maxRowsOnPage = Math.min(rowsPerPage, Math.ceil(pagesToDisplay.length / pagesPerRow));
-      
-      // Draw data rows
-      for (let rowIndex = 0; rowIndex < maxRowsOnPage; rowIndex++) {
-        xPos = 30;
-        
-        // Process first column
-        if (rowIndex < pagesToDisplay.length) {
-          const page = pagesToDisplay[rowIndex];
-          const rowColor = rowIndex % 2 === 0 ? lightGray : white;
-          
-          // Draw row background
-          doc.rect(xPos, yPos, dafColWidth + dateColWidth + (reviewColWidth * reviews), rowHeight)
-             .fill(rowColor);
-          
-          // Draw daf number
-          doc.fillColor(darkGray)
-             .font('Helvetica')
-             .fontSize(9) // Smaller font
-             .text(page.daf, xPos + 5, yPos + 5, { width: dafColWidth - 10, align: 'center' });
-          
-          // Draw cell border
-          doc.rect(xPos, yPos, dafColWidth, rowHeight)
-             .stroke(darkGray);
-          
-          xPos += dafColWidth;
-          
-          // Draw date placeholder
-          doc.rect(xPos, yPos, dateColWidth, rowHeight)
-             .stroke(darkGray);
-          
-          xPos += dateColWidth;
-          
-          // Draw review columns with simple checkboxes
-          for (let i = 1; i <= reviews; i++) {
-            // Draw cell border
-            doc.rect(xPos, yPos, reviewColWidth, rowHeight)
-               .stroke(darkGray);
-            
-            // Draw simple checkbox in center of cell
-            const checkboxX = xPos + (reviewColWidth / 2) - 3;
-            const checkboxY = yPos + (rowHeight / 2) - 3;
-            
-            doc.rect(checkboxX, checkboxY, 6, 6)
-               .stroke(darkGray);
-            
-            xPos += reviewColWidth;
-          }
-          
-          // If using double columns and we have a second page to display
-          if (useDoubleColumns && rowIndex + maxRowsOnPage < pagesToDisplay.length) {
-            // Add a small gap
-            xPos += 10;
-            
-            const secondPage = pagesToDisplay[rowIndex + maxRowsOnPage];
-            
-            // Draw row background for second column
-            doc.rect(xPos, yPos, dafColWidth + dateColWidth + (reviewColWidth * reviews), rowHeight)
-               .fill(rowColor);
-            
-            // Draw daf number for second column
-            doc.fillColor(darkGray)
-               .font('Helvetica')
-               .fontSize(9)
-               .text(secondPage.daf, xPos + 5, yPos + 5, { width: dafColWidth - 10, align: 'center' });
-            
-            // Draw cell border
-            doc.rect(xPos, yPos, dafColWidth, rowHeight)
-               .stroke(darkGray);
-            
-            xPos += dafColWidth;
-            
-            // Draw date placeholder
-            doc.rect(xPos, yPos, dateColWidth, rowHeight)
-               .stroke(darkGray);
-            
-            xPos += dateColWidth;
-            
-            // Draw review columns with simple checkboxes
-            for (let i = 1; i <= reviews; i++) {
-              // Draw cell border
-              doc.rect(xPos, yPos, reviewColWidth, rowHeight)
-                 .stroke(darkGray);
-              
-              // Draw simple checkbox in center of cell
-              const checkboxX = xPos + (reviewColWidth / 2) - 3;
-              const checkboxY = yPos + (rowHeight / 2) - 3;
-              
-              doc.rect(checkboxX, checkboxY, 6, 6)
-                 .stroke(darkGray);
-              
-              xPos += reviewColWidth;
-            }
-          }
         }
         
         // Move to next row
-        yPos += rowHeight;
-      }
-      
-      // Add more pages if needed
-      if (pagesToDisplay.length > (useDoubleColumns ? maxRowsOnPage * 2 : maxRowsOnPage)) {
-        const remainingPages = pagesToDisplay.slice(useDoubleColumns ? maxRowsOnPage * 2 : maxRowsOnPage);
-        let currentPage = 0;
+        yPos += 20;
         
-        while (currentPage < remainingPages.length) {
-          doc.addPage();
+        // Calculate how many items each column should contain
+        const itemsPerColumn = Math.ceil(pages.length / parseInt(columnsPerPage));
+        const startIndex = colIndex * itemsPerColumn;
+        const endIndex = Math.min(startIndex + itemsPerColumn, pages.length);
+        const columnPages = pages.slice(startIndex, endIndex);
+        
+        // Starting date for this column
+        let currentDate = new Date(startDate);
+        currentDate.setDate(currentDate.getDate() + startIndex);
+        
+        // Draw rows for this column
+        columnPages.forEach((page, rowIndex) => {
+          // Set alternating row color
+          const rowColor = rowIndex % 2 === 0 ? lightGray : white;
           
-          // Add simple header for continuation page
-          doc.rect(0, 0, doc.page.width, 30)
-             .fill(primaryColor);
+          // Draw row background
+          doc.rect(colXOffset, yPos, contentWidth, 16)
+             .fill(rowColor);
           
-          // Add title to new page
-          doc.fillColor(white)
-             .fontSize(14)
-             .font('Helvetica-Bold')
-             .text(`${tractate} - Continued`, 30, 10);
+          // Reset x position for this row
+          xPos = colXOffset;
           
-          // Reset position
-          yPos = 40;
-          xPos = 30;
-          
-          // Draw header row
-          doc.rect(xPos, yPos, pageWidth, 25)
-             .fill(primaryColor);
-          
-          // Reset position for text
-          doc.fillColor(white);
-          
-          // Draw header text
-          doc.font('Helvetica-Bold')
-             .fontSize(10)
-             .text('Daf', xPos + 5, yPos + 8, { width: dafColWidth - 10, align: 'center' });
-          
-          xPos += dafColWidth;
-          
-          doc.text('Date', xPos + 5, yPos + 8, { width: dateColWidth - 10, align: 'center' });
-          
-          xPos += dateColWidth;
-          
-          for (let i = 1; i <= reviews; i++) {
-            doc.text(`${i}`, xPos + 5, yPos + 8, { width: reviewColWidth - 10, align: 'center' });
-            xPos += reviewColWidth;
-          }
-          
-          // If using double columns, add second set of headers
-          if (useDoubleColumns) {
-            // Add a small gap
-            xPos += 10;
-            
-            // Draw second set of headers
-            doc.text('Daf', xPos + 5, yPos + 8, { width: dafColWidth - 10, align: 'center' });
-            
-            xPos += dafColWidth;
-            
-            doc.text('Date', xPos + 5, yPos + 8, { width: dateColWidth - 10, align: 'center' });
-            
-            xPos += dateColWidth;
-            
-            for (let i = 1; i <= reviews; i++) {
-              doc.text(`${i}`, xPos + 5, yPos + 8, { width: reviewColWidth - 10, align: 'center' });
-              xPos += reviewColWidth;
-            }
-          }
-          
-          // Move to next row
-          yPos += 25;
-          
-          // Draw rows for this page
-          for (let rowIndex = 0; rowIndex < maxRowsOnPage && currentPage < remainingPages.length; rowIndex++) {
-            xPos = 30;
-            
-            // Process first column
-            const page = remainingPages[currentPage++];
-            const rowColor = rowIndex % 2 === 0 ? lightGray : white;
-            
-            // Draw row background
-            doc.rect(xPos, yPos, dafColWidth + dateColWidth + (reviewColWidth * reviews), rowHeight)
-               .fill(rowColor);
-            
-            // Draw daf number
-            doc.fillColor(darkGray)
-               .font('Helvetica')
-               .fontSize(9)
-               .text(page.daf, xPos + 5, yPos + 5, { width: dafColWidth - 10, align: 'center' });
-            
-            // Draw cell border
-            doc.rect(xPos, yPos, dafColWidth, rowHeight)
-               .stroke(darkGray);
-            
-            xPos += dafColWidth;
-            
-            // Draw date placeholder
-            doc.rect(xPos, yPos, dateColWidth, rowHeight)
-               .stroke(darkGray);
-            
-            xPos += dateColWidth;
-            
-            // Draw review columns with simple checkboxes
-            for (let i = 1; i <= reviews; i++) {
-              // Draw cell border
-              doc.rect(xPos, yPos, reviewColWidth, rowHeight)
-                 .stroke(darkGray);
-              
-              // Draw simple checkbox in center of cell
-              const checkboxX = xPos + (reviewColWidth / 2) - 3;
-              const checkboxY = yPos + (rowHeight / 2) - 3;
-              
-              doc.rect(checkboxX, checkboxY, 6, 6)
-                 .stroke(darkGray);
-              
-              xPos += reviewColWidth;
-            }
-            
-            // If using double columns and we have a second page to display
-            if (useDoubleColumns && currentPage < remainingPages.length) {
-              // Add a small gap
-              xPos += 10;
-              
-              const secondPage = remainingPages[currentPage++];
-              
-              // Draw row background for second column
-              doc.rect(xPos, yPos, dafColWidth + dateColWidth + (reviewColWidth * reviews), rowHeight)
-                 .fill(rowColor);
-              
-              // Draw daf number for second column
-              doc.fillColor(darkGray)
-                 .font('Helvetica')
-                 .fontSize(9)
-                 .text(secondPage.daf, xPos + 5, yPos + 5, { width: dafColWidth - 10, align: 'center' });
-              
-              // Draw cell border
-              doc.rect(xPos, yPos, dafColWidth, rowHeight)
-                 .stroke(darkGray);
-              
-              xPos += dafColWidth;
-              
-              // Draw date placeholder
-              doc.rect(xPos, yPos, dateColWidth, rowHeight)
-                 .stroke(darkGray);
-              
-              xPos += dateColWidth;
-              
-              // Draw review columns with simple checkboxes
-              for (let i = 1; i <= reviews; i++) {
-                // Draw cell border
-                doc.rect(xPos, yPos, reviewColWidth, rowHeight)
-                   .stroke(darkGray);
-                
-                // Draw simple checkbox in center of cell
-                const checkboxX = xPos + (reviewColWidth / 2) - 3;
-                const checkboxY = yPos + (rowHeight / 2) - 3;
-                
-                doc.rect(checkboxX, checkboxY, 6, 6)
-                   .stroke(darkGray);
-                
-                xPos += reviewColWidth;
-              }
-            }
-            
-            // Move to next row
-            yPos += rowHeight;
-          }
-          
-          // Add simple footer with page numbers
-          const pageCount = Math.ceil(pagesToDisplay.length / (useDoubleColumns ? maxRowsOnPage * 2 : maxRowsOnPage));
-          const currentPageNum = Math.floor(currentPage / (useDoubleColumns ? maxRowsOnPage * 2 : maxRowsOnPage)) + 1;
-          
+          // Draw daf cell
           doc.fillColor(darkGray)
              .fontSize(8)
              .font('Helvetica')
-             .text(
-               `Page ${currentPageNum} of ${pageCount} | Chazara Charts`,
-               30, 
-               doc.page.height - 20, 
-               { align: 'center', width: doc.page.width - 60 }
-             );
-        }
-      } else {
-        // Add simple footer with page numbers for first page
-        const pageCount = Math.ceil(pagesToDisplay.length / (useDoubleColumns ? maxRowsOnPage * 2 : maxRowsOnPage));
-        
-        doc.fillColor(darkGray)
-           .fontSize(8)
-           .font('Helvetica')
-           .text(
-             `Page 1 of ${pageCount} | Chazara Charts`,
-             30, 
-             doc.page.height - 20, 
-             { align: 'center', width: doc.page.width - 60 }
-           );
+             .text(page, xPos + 2, yPos + 4, { width: dafColWidth - 4, align: 'center' });
+          
+          // Draw border for daf cell
+          doc.rect(xPos, yPos, dafColWidth, 16)
+             .stroke(darkGray);
+          
+          xPos += dafColWidth;
+          
+          // Draw date cell if needed
+          if (includeDateColumn) {
+            doc.text(currentDate.toLocaleDateString(), xPos + 2, yPos + 4, { width: dateColWidth - 4, align: 'center' });
+            doc.rect(xPos, yPos, dateColWidth, 16)
+               .stroke(darkGray);
+            
+            xPos += dateColWidth;
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+          
+          // Draw review cells
+          for (let i = 0; i < reviews; i++) {
+            // Draw cell border
+            doc.rect(xPos, yPos, reviewColWidth, 16)
+               .stroke(darkGray);
+            
+            // Draw checkbox
+            const checkboxSize = 5;
+            const checkboxX = xPos + (reviewColWidth / 2) - (checkboxSize / 2);
+            const checkboxY = yPos + 8 - (checkboxSize / 2);
+            
+            doc.rect(checkboxX, checkboxY, checkboxSize, checkboxSize)
+               .stroke(darkGray);
+            
+            xPos += reviewColWidth;
+          }
+          
+          // Move to next row
+          yPos += 16;
+          
+          // Check if we need a new page
+          if (yPos > doc.page.height - 50 && rowIndex < columnPages.length - 1) {
+            doc.addPage();
+            yPos = 50;
+            
+            // Add header to new page
+            doc.rect(0, 0, doc.page.width, 40)
+               .fill(primaryColor);
+            
+            doc.fillColor(white)
+               .fontSize(18)
+               .font('Helvetica-Bold')
+               .text(`${tractate} - Chazara Chart (Continued)`, 30, 12);
+          }
+        });
       }
+      
+      // Add page number at the bottom of each page
+      doc.fillColor(darkGray)
+         .fontSize(8)
+         .font('Helvetica')
+         .text(
+           `Page ${doc.bufferedPageRange().start + 1} | Chazara Charts`,
+           30, 
+           doc.page.height - 20, 
+           { align: 'center', width: doc.page.width - 60 }
+         );
     });
     
     // Finalize the PDF
@@ -773,7 +493,7 @@ app.post('/api/create-pdf', async (req, res) => {
     
   } catch (error) {
     console.error('Error generating PDF file:', error);
-    res.status(500).json({ error: 'Failed to generate PDF file' });
+    res.status(500).json({ error: 'Failed to generate PDF file', details: error.message });
   }
 });
 
