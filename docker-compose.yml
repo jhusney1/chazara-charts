@@ -1,12 +1,14 @@
 services:
+  # Production service: Express server serving React build
   app:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3030:3000"
+      - "3000:3000"  # Maps host port 3000 to container port 3000
     environment:
       - NODE_ENV=production
+      - PORT=3000
     restart: unless-stopped
     volumes:
       # For production, you might want to exclude volumes to use the built image as is
@@ -14,16 +16,16 @@ services:
     networks:
       - chazara-network
 
-  # API server for development
+  # Development API server
   api-dev:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3032:3000"  # Changed from 3030 to 3032 to avoid conflict
+      - "3001:3001"  # Maps host port 3001 to container port 3001
     environment:
       - NODE_ENV=development
-      - PORT=3000
+      - PORT=3001
     volumes:
       - ./:/usr/src/app
       - /usr/src/app/node_modules
@@ -37,11 +39,10 @@ services:
       context: ./client
       dockerfile: Dockerfile.dev
     ports:
-      - "3031:3000"  # React dev server on port 3031
+      - "3000:3000"  # Maps host port 3000 to container port 3000
     environment:
       - NODE_ENV=development
-      - PORT=3000
-      - REACT_APP_API_URL=http://localhost:3032  # Updated to match api-dev port
+      - REACT_APP_API_URL=http://localhost:3001  # Points to API server
     volumes:
       - ./client:/usr/src/app
       - /usr/src/app/node_modules

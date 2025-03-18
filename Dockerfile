@@ -34,8 +34,9 @@ COPY --from=build /usr/src/app/server.js ./
 
 # Set environment to production
 ENV NODE_ENV=production
+ENV PORT=3000
 
-# Expose the port the app runs on
+# Expose the standard port
 EXPOSE 3000
 
 # Command to run the application

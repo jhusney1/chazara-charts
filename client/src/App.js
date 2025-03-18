@@ -7,8 +7,13 @@ import Footer from './components/Footer';
 import axios from 'axios';
 
 // Configure axios defaults
+// In development: API runs on port 3001
+// In production: API and client are served from the same origin
 const API_URL = process.env.REACT_APP_API_URL || '';
 axios.defaults.baseURL = API_URL;
+
+// Log the API URL for debugging purposes
+console.log('API URL:', API_URL || 'Same origin');
 
 function App() {
   const [tractateData, setTractateData] = useState({});

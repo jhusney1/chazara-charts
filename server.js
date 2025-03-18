@@ -8,7 +8,11 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 const app = express();
-const PORT = process.env.PORT || 3000;
+
+// Port configuration
+// In production: Uses port 3000
+// In development: Uses port 3001 to avoid conflict with React's dev server (port 3000)
+const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 3000 : 3001);
 
 // Middleware
 app.use(bodyParser.json());
@@ -32,7 +36,7 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, 'client/build')));
 } else {
   // In development, we need to serve the client/src files through the React development server
-  // The React app will be served separately on port 3031
+  // The React app will be served separately on port 3000
   console.log('Running in development mode - API server only');
   
   // Still serve static files from client/public for development testing
@@ -566,4 +570,8 @@ if (process.env.NODE_ENV === 'production') {
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`API available at http://localhost:${PORT}/api`);
+    console.log('React dev server should be running separately on port 3000');
+  }
 }); 
