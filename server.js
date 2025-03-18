@@ -18,16 +18,7 @@ const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 3000 :
 app.use(bodyParser.json());
 app.use(cors());
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdnjs.cloudflare.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com", "data:"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", "localhost:*"],
-    },
-  },
+  contentSecurityPolicy: false,  // Disable CSP for now
 }));
 app.use(compression());
 app.use(morgan('dev'));
