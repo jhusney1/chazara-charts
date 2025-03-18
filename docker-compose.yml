@@ -29,7 +29,8 @@ services:
     volumes:
       - ./:/usr/src/app
       - /usr/src/app/node_modules
-    command: npm run dev
+    entrypoint: >
+      sh -c "npm install && npm run dev"
     networks:
       - chazara-network
 
@@ -39,7 +40,7 @@ services:
       context: ./client
       dockerfile: Dockerfile.dev
     ports:
-      - "3000:3000"  # Maps host port 3000 to container port 3000
+      - "3002:3000"  # Maps host port 3002 to container port 3000
     environment:
       - NODE_ENV=development
       - REACT_APP_API_URL=http://localhost:3001  # Points to API server
