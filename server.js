@@ -7,6 +7,12 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
+
+// Import data modules
+const tractateData = require('./data/tractateData');
+const { convertToHebrew } = require('./data/hebrewUtils');
+const { defaultChartSettings, pdfStyles, excelStyles, printOptions } = require('./data/chartConfig');
+
 const app = express();
 
 // Port configuration
@@ -35,50 +41,6 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, 'client/public')));
 }
 
-// Talmud tractate data with page counts
-const tractateData = {
-  "Berachot": 64,
-  "Shabbat": 157,
-  "Eruvin": 105,
-  "Pesachim": 121,
-  "Shekalim": 22,
-  "Yoma": 88,
-  "Sukkah": 56,
-  "Beitzah": 40,
-  "Rosh Hashanah": 35,
-  "Taanit": 31,
-  "Megillah": 32,
-  "Moed Katan": 29,
-  "Chagigah": 27,
-  "Yevamot": 122,
-  "Ketubot": 112,
-  "Nedarim": 91,
-  "Nazir": 66,
-  "Sotah": 49,
-  "Gittin": 90,
-  "Kiddushin": 82,
-  "Bava Kamma": 119,
-  "Bava Metzia": 119,
-  "Bava Batra": 176,
-  "Sanhedrin": 113,
-  "Makkot": 24,
-  "Shevuot": 49,
-  "Avodah Zarah": 76,
-  "Horayot": 14,
-  "Zevachim": 120,
-  "Menachot": 110,
-  "Chullin": 142,
-  "Bechorot": 61,
-  "Arachin": 34,
-  "Temurah": 34,
-  "Keritot": 28,
-  "Meilah": 22,
-  "Tamid": 33,
-  "Middot": 41,
-  "Kinnim": 25,
-  "Niddah": 73
-};
-
 // API endpoint to get tractate data
 app.get('/api/tractates', (req, res) => {
   res.json(tractateData);
@@ -106,15 +68,16 @@ app.get('/', (req, res) => {
 
 app.post('/api/create-excel', async (req, res) => {
   try {
+    // Merge default settings with request body
     const { 
       tractates = [], 
-      reviews = 3, 
+      reviews = defaultChartSettings.reviews, 
       pages = [], 
-      useHebrew = false,
-      columnsPerPage = 1,
-      includeDateColumn = true,
+      useHebrew = defaultChartSettings.useHebrew,
+      columnsPerPage = defaultChartSettings.columnsPerPage,
+      includeDateColumn = defaultChartSettings.includeDateColumn,
       startDate = new Date().toISOString().split('T')[0],
-      dafPerDay = false
+      dafPerDay = defaultChartSettings.dafPerDay
     } = req.body;
     
     if (!tractates.length) {
@@ -136,43 +99,45 @@ app.post('/api/create-excel', async (req, res) => {
       const columnsPerPageValue = parseInt(columnsPerPage);
       const itemsPerColumn = Math.ceil(pages.length / columnsPerPageValue);
       
+      // Track the current column position
+      let currentColumn = 1;
+      
       // Create all columns
       for (let colIndex = 0; colIndex < columnsPerPageValue; colIndex++) {
-        // Calculate starting column for this section
-        const colOffset = colIndex * (includeDateColumn ? reviews + 2 : reviews + 1);
-        
         // Define headers for this column set
         const headers = [];
-        headers.push(`Daf ${colIndex + 1}`); // Add column number to distinguish multiple daf columns
+        headers.push(`Daf`);
         
         if (includeDateColumn) {
-          headers.push(`Date ${colIndex + 1}`);
+          headers.push(`Date`);
         }
         
         for (let i = 1; i <= reviews; i++) {
-          headers.push(`${i} ${colIndex + 1}`);
+          headers.push(`${i}`);
         }
         
         // Add the headers to the correct columns
         for (let i = 0; i < headers.length; i++) {
-          const cell = worksheet.getCell(1, colOffset + i + 1);
+          const cell = worksheet.getCell(1, currentColumn);
           cell.value = headers[i];
           cell.font = { bold: true, color: { argb: 'FFFFFF' } };
           cell.fill = {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: { argb: '4338CA' }
+            fgColor: { argb: excelStyles.headerColor }
           };
           cell.alignment = { vertical: 'middle', horizontal: 'center' };
           
           // Set column width
           if (i === 0) {
-            worksheet.getColumn(colOffset + i + 1).width = 6; // Daf column
+            worksheet.getColumn(currentColumn).width = excelStyles.dafColumnWidth;
           } else if (includeDateColumn && i === 1) {
-            worksheet.getColumn(colOffset + i + 1).width = 10; // Date column
+            worksheet.getColumn(currentColumn).width = excelStyles.dateColumnWidth;
           } else {
-            worksheet.getColumn(colOffset + i + 1).width = 6; // Review columns
+            worksheet.getColumn(currentColumn).width = excelStyles.reviewColumnWidth;
           }
+          
+          currentColumn++;
         }
         
         // Calculate which pages go in this column
@@ -184,19 +149,26 @@ app.post('/api/create-excel', async (req, res) => {
         let currentDate = new Date(startDate);
         currentDate.setDate(currentDate.getDate() + startIndex);
         
+        // Reset column position for data rows
+        currentColumn = currentColumn - headers.length;
+        
         // Add data for this column
         columnPages.forEach((page, rowIndex) => {
           const row = rowIndex + 2; // +2 because row 1 is headers
           
           // Add daf
-          const dafCell = worksheet.getCell(row, colOffset + 1);
-          dafCell.value = page;
+          const dafCell = worksheet.getCell(row, currentColumn);
+          dafCell.value = useHebrew ? convertToHebrew(page) : page;
+          
+          // Current data column position
+          let dataColumn = currentColumn + 1;
           
           // Add date if enabled
           if (includeDateColumn) {
-            const dateCell = worksheet.getCell(row, colOffset + 2);
+            const dateCell = worksheet.getCell(row, dataColumn);
             dateCell.value = currentDate.toLocaleDateString();
             currentDate.setDate(currentDate.getDate() + 1);
+            dataColumn++;
           }
           
           // Style the row
@@ -204,7 +176,7 @@ app.post('/api/create-excel', async (req, res) => {
             fill: {
               type: 'pattern',
               pattern: 'solid',
-              fgColor: { argb: rowIndex % 2 === 0 ? 'F3F4F6' : 'FFFFFF' }
+              fgColor: { argb: rowIndex % 2 === 0 ? excelStyles.alternateRowColor : 'FFFFFF' }
             }
           };
           
@@ -212,7 +184,7 @@ app.post('/api/create-excel', async (req, res) => {
           const totalCols = includeDateColumn ? reviews + 2 : reviews + 1;
           
           for (let i = 0; i < totalCols; i++) {
-            const cell = worksheet.getCell(row, colOffset + i + 1);
+            const cell = worksheet.getCell(row, currentColumn + i);
             
             // Add borders
             cell.border = {
@@ -231,25 +203,13 @@ app.post('/api/create-excel', async (req, res) => {
             }
           }
         });
+        
+        // Move to next set of columns
+        currentColumn = currentColumn + headers.length;
       }
       
       // Set print options
-      worksheet.pageSetup = {
-        orientation: 'landscape',
-        fitToPage: true,
-        fitToWidth: 1,
-        fitToHeight: 0,
-        paperSize: 9,
-        horizontalCentered: true,
-        margins: {
-          left: 0.25,
-          right: 0.25,
-          top: 0.5,
-          bottom: 0.5,
-          header: 0.3,
-          footer: 0.3
-        }
-      };
+      worksheet.pageSetup = printOptions.excel;
       
       // Freeze the header row
       worksheet.views = [
@@ -274,26 +234,25 @@ app.post('/api/create-excel', async (req, res) => {
 // PDF Generation endpoint
 app.post('/api/create-pdf', async (req, res) => {
   try {
+    // Merge default settings with request body
     const { 
       tractates = [], 
-      reviews = 3, 
+      reviews = defaultChartSettings.reviews, 
       pages = [], 
-      useHebrew = false,
-      columnsPerPage = 1,
-      includeDateColumn = true,
+      useHebrew = defaultChartSettings.useHebrew,
+      columnsPerPage = defaultChartSettings.columnsPerPage,
+      includeDateColumn = defaultChartSettings.includeDateColumn,
       startDate = new Date().toISOString().split('T')[0],
-      dafPerDay = false
+      dafPerDay = defaultChartSettings.dafPerDay
     } = req.body;
     
     if (!tractates.length) {
       return res.status(400).json({ error: 'Please provide at least one tractate' });
     }
     
-    // Create a new PDF document
-    const doc = new PDFDocument({ 
-      layout: 'landscape',
-      margin: 30,
-      size: 'A4',
+    // Create a new PDF document with specified print options
+    const doc = new PDFDocument({
+      ...printOptions.pdf,
       info: {
         Title: `${tractates[0]} Chazara Chart`,
         Author: 'Chazara Charts',
@@ -310,12 +269,8 @@ app.post('/api/create-pdf', async (req, res) => {
     // Pipe the PDF to the response
     doc.pipe(res);
     
-    // Define colors
-    const primaryColor = '#4338ca';
-    const secondaryColor = '#f59e0b';
-    const lightGray = '#f3f4f6';
-    const darkGray = '#4b5563';
-    const white = '#ffffff';
+    // Access PDF styling colors
+    const { primaryColor, secondaryColor, lightGray, darkGray, white } = pdfStyles;
     
     // Handle each tractate
     tractates.forEach((tractate, tractateIndex) => {
@@ -417,7 +372,7 @@ app.post('/api/create-pdf', async (req, res) => {
           doc.fillColor(darkGray)
              .fontSize(8)
              .font('Helvetica')
-             .text(page, xPos + 2, yPos + 4, { width: dafColWidth - 4, align: 'center' });
+             .text(useHebrew ? convertToHebrew(page) : page, xPos + 2, yPos + 4, { width: dafColWidth - 4, align: 'center' });
           
           // Draw border for daf cell
           doc.rect(xPos, yPos, dafColWidth, 16)
@@ -501,55 +456,6 @@ function generateDefaultPages() {
     pages.push({ daf: `${i}b` });
   }
   return pages;
-}
-
-// Helper function to convert numbers to Hebrew letters
-function convertToHebrew(input) {
-  // Extract the number and amud part (if present)
-  const match = input.match(/(\d+)([ab])?/);
-  if (!match) return input;
-  
-  const num = parseInt(match[1]);
-  const amud = match[2]; // This might be undefined if no amud is specified
-  
-  // Hebrew letters with their numerical values
-  const hebrewNumerals = [
-    { value: 400, letter: 'ת' },
-    { value: 300, letter: 'ש' },
-    { value: 200, letter: 'ר' },
-    { value: 100, letter: 'ק' },
-    { value: 90, letter: 'צ' },
-    { value: 80, letter: 'פ' },
-    { value: 70, letter: 'ע' },
-    { value: 60, letter: 'ס' },
-    { value: 50, letter: 'נ' },
-    { value: 40, letter: 'מ' },
-    { value: 30, letter: 'ל' },
-    { value: 20, letter: 'כ' },
-    { value: 10, letter: 'י' },
-    { value: 9, letter: 'ט' },
-    { value: 8, letter: 'ח' },
-    { value: 7, letter: 'ז' },
-    { value: 6, letter: 'ו' },
-    { value: 5, letter: 'ה' },
-    { value: 4, letter: 'ד' },
-    { value: 3, letter: 'ג' },
-    { value: 2, letter: 'ב' },
-    { value: 1, letter: 'א' }
-  ];
-  
-  let hebrewNum = '';
-  let remaining = num;
-  
-  // Convert the number to Hebrew letters
-  for (const { value, letter } of hebrewNumerals) {
-    while (remaining >= value) {
-      hebrewNum += letter;
-      remaining -= value;
-    }
-  }
-  
-  return hebrewNum;
 }
 
 // Catch-all route to serve React app in production

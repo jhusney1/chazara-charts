@@ -6,6 +6,7 @@ import {
   CalendarIcon
 } from '@heroicons/react/24/outline';
 import { Tooltip, FormatSelection, GenerateButton, downloadChart } from './BaseChartForm';
+import translations from './data/translations';
 
 // Helper function to create a range of numbers
 const range = (start, end) => {
@@ -31,7 +32,7 @@ const GemaraChartForm = ({ tractateData }) => {
     columnsPerPage: 1,
     includeDateColumn: true,
     startDate: new Date().toISOString().split('T')[0],
-    dafPerDay: false
+    dafPerDay: true
   });
   
   const [loading, setLoading] = useState(false);
@@ -40,67 +41,17 @@ const GemaraChartForm = ({ tractateData }) => {
   useEffect(() => {
     if (formData.tractate && tractateData[formData.tractate]) {
       setMaxDaf(tractateData[formData.tractate]);
+      
+      // Update end daf to the last daf of the masechet when a new masechet is selected
+      setFormData(prev => ({
+        ...prev,
+        endDaf: tractateData[formData.tractate]
+      }));
     }
   }, [formData.tractate, tractateData]);
   
-  const labels = {
-    en: {
-      generateChart: 'Generate Your Gemara Chart',
-      selectMasechet: 'Select Masechet',
-      startingDaf: 'Starting Daf',
-      endingDaf: 'Ending Daf',
-      reviews: 'Number of Reviews',
-      useHebrew: 'Use Hebrew letters for daf numbers',
-      downloadFormat: 'Download Format',
-      excel: 'Excel Spreadsheet',
-      excelDesc: 'Editable format for digital use',
-      pdf: 'PDF Document',
-      pdfDesc: 'Printable format for physical use',
-      generating: 'Generating...',
-      generate: 'Generate Chart',
-      footer: 'This will generate a chart for the selected tractate with columns for the date learned and each review session.',
-      columnsPerPage: 'Columns per Page',
-      includeDateColumn: 'Include Date Column',
-      startDate: 'Start Date',
-      dafPerDay: 'One Daf per Day (instead of one Amud)',
-      customization: 'Chart Customization',
-      tooltips: {
-        columnsPerPage: 'Determines how many columns to split your chart into on each page',
-        includeDateColumn: 'Include a column for marking the date when each daf/amud was learned',
-        startDate: 'If date column is included, start filling dates from this day',
-        dafPerDay: 'When enabled, groups both sides (amudim) of each daf as a single row'
-      }
-    },
-    he: {
-      generateChart: 'צור את הטבלה שלך',
-      selectMasechet: 'בחר מסכת',
-      startingDaf: 'דף התחלה',
-      endingDaf: 'דף סיום',
-      reviews: 'מספר חזרות',
-      useHebrew: 'השתמש באותיות עבריות למספרי דפים',
-      downloadFormat: 'פורמט להורדה',
-      excel: 'גיליון אקסל',
-      excelDesc: 'פורמט לעריכה דיגיטלית',
-      pdf: 'מסמך PDF',
-      pdfDesc: 'פורמט להדפסה',
-      generating: 'מייצר...',
-      generate: 'צור טבלה',
-      footer: 'זה ייצור טבלה עבור המסכת שנבחרה עם עמודות לתאריך הלימוד ולכל חזרה.',
-      columnsPerPage: 'עמודות בכל דף',
-      includeDateColumn: 'כלול עמודת תאריך',
-      startDate: 'תאריך התחלה',
-      dafPerDay: 'דף אחד ליום (במקום עמוד אחד)',
-      customization: 'התאמה אישית של הטבלה',
-      tooltips: {
-        columnsPerPage: 'קובע לכמה עמודות לחלק את הטבלה שלך בכל עמוד',
-        includeDateColumn: 'כלול עמודה לסימון התאריך שבו נלמד כל דף/עמוד',
-        startDate: 'אם עמודת תאריך נכללת, התחל למלא תאריכים מיום זה',
-        dafPerDay: 'כאשר מופעל, מקבץ את שני הצדדים (עמודים) של כל דף כשורה אחת'
-      }
-    }
-  };
-  
-  const t = labels[language === 'he' ? 'he' : 'en'];
+  // Get translation based on current language
+  const t = translations[language === 'he' ? 'he' : 'en'];
   
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -192,7 +143,7 @@ const GemaraChartForm = ({ tractateData }) => {
           <div className="bg-white rounded-xl shadow-md p-6 border border-indigo-100">
             <h3 className="text-lg font-bold text-indigo-800 mb-6 flex items-center">
               <ChevronDoubleRightIcon className="h-5 w-5 mr-2 text-indigo-600" />
-              {language === 'en' ? 'Main Settings' : 'הגדרות ראשיות'}
+              {t.mainSettings}
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -218,13 +169,46 @@ const GemaraChartForm = ({ tractateData }) => {
                 </select>
               </div>
               
+              {/* Learning Mode Toggle */}
+              <div className="col-span-1 md:col-span-2">
+                <div className="flex items-center mb-2">
+                  <label htmlFor="dafPerDay" className="block text-sm font-medium text-gray-700">
+                    {t.dafPerDay}
+                  </label>
+                  <Tooltip text={t.tooltips.dafPerDay} />
+                </div>
+                
+                <div 
+                  className="relative inline-flex items-center cursor-pointer" 
+                  onClick={() => {
+                    setFormData(prev => ({
+                      ...prev,
+                      dafPerDay: !prev.dafPerDay
+                    }));
+                  }}
+                >
+                  <input 
+                    type="checkbox" 
+                    id="dafPerDay" 
+                    name="dafPerDay"
+                    checked={formData.dafPerDay} 
+                    onChange={handleChange} 
+                    className="sr-only peer" 
+                  />
+                  <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-indigo-600"></div>
+                  <span className="ml-3 text-sm font-medium text-gray-700">
+                    {formData.dafPerDay ? t.dafMode : t.amudMode}
+                  </span>
+                </div>
+              </div>
+              
               {/* Starting Daf */}
               <div>
                 <label htmlFor="startDaf" className="block text-sm font-medium text-gray-700 mb-2">
                   {t.startingDaf}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-2">
+                  <div className={formData.dafPerDay ? "col-span-3" : "col-span-2"}>
                     <select
                       id="startDaf"
                       name="startDaf"
@@ -238,18 +222,20 @@ const GemaraChartForm = ({ tractateData }) => {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <select
-                      id="startAmud"
-                      name="startAmud"
-                      value={formData.startAmud}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                    >
-                      <option value="a">א</option>
-                      <option value="b">ב</option>
-                    </select>
-                  </div>
+                  {!formData.dafPerDay && (
+                    <div>
+                      <select
+                        id="startAmud"
+                        name="startAmud"
+                        value={formData.startAmud}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                      >
+                        <option value="a">א</option>
+                        <option value="b">ב</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -259,7 +245,7 @@ const GemaraChartForm = ({ tractateData }) => {
                   {t.endingDaf}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-2">
+                  <div className={formData.dafPerDay ? "col-span-3" : "col-span-2"}>
                     <select
                       id="endDaf"
                       name="endDaf"
@@ -273,18 +259,20 @@ const GemaraChartForm = ({ tractateData }) => {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <select
-                      id="endAmud"
-                      name="endAmud"
-                      value={formData.endAmud}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                    >
-                      <option value="a">א</option>
-                      <option value="b">ב</option>
-                    </select>
-                  </div>
+                  {!formData.dafPerDay && (
+                    <div>
+                      <select
+                        id="endAmud"
+                        name="endAmud"
+                        value={formData.endAmud}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                      >
+                        <option value="a">א</option>
+                        <option value="b">ב</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -327,7 +315,7 @@ const GemaraChartForm = ({ tractateData }) => {
           <FormatSelection 
             format={formData.format} 
             onChange={handleChange} 
-            labels={labels} 
+            labels={translations} 
           />
           
           {/* Customization options */}
@@ -357,6 +345,9 @@ const GemaraChartForm = ({ tractateData }) => {
                     <option value="1">1</option>
                     <option value="2">2</option>
                     <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
                   </select>
                 </div>
                 
@@ -396,24 +387,6 @@ const GemaraChartForm = ({ tractateData }) => {
                       />
                     </div>
                   )}
-                </div>
-                
-                {/* Daf per Day Option */}
-                <div>
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="dafPerDay"
-                      name="dafPerDay"
-                      checked={formData.dafPerDay}
-                      onChange={handleChange}
-                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 rounded transition-all"
-                    />
-                    <label htmlFor="dafPerDay" className="ml-2 block text-sm text-gray-700">
-                      {t.dafPerDay}
-                    </label>
-                    <Tooltip text={t.tooltips.dafPerDay} />
-                  </div>
                 </div>
               </div>
             </div>
