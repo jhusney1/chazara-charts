@@ -33,7 +33,7 @@ A modern web application for generating Excel spreadsheets and PDFs to track Tal
 To build and run the application using Docker Compose:
 
 ```bash
-# Build and start the container
+# Build and start the container in production mode
 docker compose up --build
 
 # Or to run in detached mode (background)
@@ -50,9 +50,15 @@ docker compose down
 For development with hot reloading of both the server and client:
 
 ```bash
-# Build and start the development container
+# Build and start the development containers
 docker compose --profile dev up --build
 ```
+
+This will start:
+- The API server on port 3001
+- The React development server on port 3002
+
+Access the development application at http://localhost:3002
 
 ### Option 3: Local Development
 

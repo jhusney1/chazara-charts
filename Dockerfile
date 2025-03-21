@@ -31,6 +31,7 @@ RUN npm install --only=production
 # Copy built app from build stage
 COPY --from=build /usr/src/app/client/build ./client/build
 COPY --from=build /usr/src/app/server.js ./
+COPY --from=build /usr/src/app/data ./data
 
 # Set environment to production
 ENV NODE_ENV=production

@@ -40,11 +40,20 @@ In production mode, a single Express server handles both the API and serves the 
 
 ## Docker Configuration
 
-The Docker Compose configuration reflects this port setup:
+The Docker Compose configuration reflects this port setup with two distinct modes (profiles):
 
-- `react-dev`: Maps host port 3000 to container port 3000
-- `api-dev`: Maps host port 3001 to container port 3001
+### Production Profile (default)
 - `app` (production): Maps host port 3000 to container port 3000
+  - Single container serving both API and static React files
+
+### Development Profile
+- `api-dev`: Maps host port 3001 to container port 3001
+- `react-dev`: Maps host port 3002 to container port 3000
+
+You can run the development profile with:
+```bash
+docker compose --profile dev up --build
+```
 
 ## Environment Variables
 

@@ -365,7 +365,7 @@ const ChartForm = ({ tractateData }) => {
                 </div>
               </div>
               <div className="absolute top-0 right-0 -mt-2 -mr-2 px-2 py-1 bg-yellow-500 text-white text-xs rounded-full">
-                {language === 'en' ? 'Coming Soon' : 'בקרוב'}
+                {language === 'en' ? 'Beta Version' : 'בקרוב'}
               </div>
             </label>
             
@@ -389,7 +389,7 @@ const ChartForm = ({ tractateData }) => {
                 </div>
               </div>
               <div className="absolute top-0 right-0 -mt-2 -mr-2 px-2 py-1 bg-yellow-500 text-white text-xs rounded-full">
-                {language === 'en' ? 'Coming Soon' : 'בקרוב'}
+                {language === 'en' ? 'Beta Version' : 'בקרוב'}
               </div>
             </label>
           </div>

@@ -15,6 +15,7 @@ services:
       []
     networks:
       - chazara-network
+    profiles: ["prod", "default"]
 
   # Development API server
   api-dev:
@@ -33,6 +34,7 @@ services:
       sh -c "npm install && npm run dev"
     networks:
       - chazara-network
+    profiles: ["dev"]
 
   # React development server
   react-dev:
@@ -52,6 +54,7 @@ services:
       - api-dev
     networks:
       - chazara-network
+    profiles: ["dev"]
 
 networks:
   chazara-network:
