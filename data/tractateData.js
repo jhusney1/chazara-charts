@@ -39,9 +39,10 @@ const tractateData = {
   "Keritot": 28,
   "Meilah": 22,
   "Tamid": 33,
-  "Middot": 41,
+  "Middot": 37,  
   "Kinnim": 25,
   "Niddah": 73
-};
+ };
+ 
 
 module.exports = tractateData; 
