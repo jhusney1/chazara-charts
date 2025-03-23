@@ -95,12 +95,14 @@ app.post('/api/create-excel', async (req, res) => {
     workbook.created = new Date();
     workbook.modified = new Date();
     
+    // Limit columns per page to prevent memory issues
+    const columnsPerPageValue = Math.min(parseInt(columnsPerPage), 5);
+    
     // Create a worksheet for each tractate
     tractates.forEach(tractate => {
       const worksheet = workbook.addWorksheet(tractate);
       
       // Calculate how many items each column should contain
-      const columnsPerPageValue = parseInt(columnsPerPage);
       const itemsPerColumn = Math.ceil(pages.length / columnsPerPageValue);
       
       // Track the current column position
@@ -190,7 +192,7 @@ app.post('/api/create-excel', async (req, res) => {
           for (let i = 0; i < totalCols; i++) {
             const cell = worksheet.getCell(row, currentColumn + i);
             
-            // Add borders
+            // Add borders only to data cells
             cell.border = {
               top: { style: 'thin' },
               left: { style: 'thin' },
@@ -210,6 +212,21 @@ app.post('/api/create-excel', async (req, res) => {
         
         // Move to next set of columns
         currentColumn = currentColumn + headers.length;
+      }
+      
+      // Remove any borders from cells beyond the actual data area
+      for (let row = 1; row <= worksheet.rowCount; row++) {
+        // Find the maximum column used by actual data
+        const headerLength = includeDateColumn ? reviews + 2 : reviews + 1;
+        const maxDataColumn = columnsPerPageValue * headerLength;
+        
+        // Remove borders from any cells beyond the data area
+        for (let col = maxDataColumn + 1; col <= worksheet.columnCount; col++) {
+          const cell = worksheet.getCell(row, col);
+          if (cell && cell.border) {
+            cell.border = undefined;
+          }
+        }
       }
       
       // Set print options
@@ -482,8 +499,10 @@ app.post('/api/mishnayot-excel', async (req, res) => {
     // Create a worksheet for the tractate
     const worksheet = workbook.addWorksheet(tractate);
     
+    // Limit columns per page to prevent memory issues
+    const columnsPerPageValue = Math.min(parseInt(columnsPerPage), 5);
+    
     // Calculate how many items each column should contain
-    const columnsPerPageValue = parseInt(columnsPerPage);
     const itemsPerColumn = Math.ceil(pages.length / columnsPerPageValue);
     
     // Track the current column position
@@ -573,7 +592,7 @@ app.post('/api/mishnayot-excel', async (req, res) => {
         for (let i = 0; i < totalCols; i++) {
           const cell = worksheet.getCell(row, currentColumn + i);
           
-          // Add borders
+          // Add borders only to data cells
           cell.border = {
             top: { style: 'thin' },
             left: { style: 'thin' },
@@ -593,6 +612,21 @@ app.post('/api/mishnayot-excel', async (req, res) => {
       
       // Move to next set of columns
       currentColumn = currentColumn + headers.length;
+    }
+    
+    // Remove any borders from cells beyond the actual data area
+    for (let row = 1; row <= worksheet.rowCount; row++) {
+      // Find the maximum column used by actual data
+      const headerLength = includeDateColumn ? reviews + 2 : reviews + 1;
+      const maxDataColumn = columnsPerPageValue * headerLength;
+      
+      // Remove borders from any cells beyond the data area
+      for (let col = maxDataColumn + 1; col <= worksheet.columnCount; col++) {
+        const cell = worksheet.getCell(row, col);
+        if (cell && cell.border) {
+          cell.border = undefined;
+        }
+      }
     }
     
     // Set print options
@@ -840,8 +874,10 @@ app.post('/api/mishna-berura-excel', async (req, res) => {
     // Create a worksheet for the topic
     const worksheet = workbook.addWorksheet(topic);
     
+    // Limit columns per page to prevent memory issues
+    const columnsPerPageValue = Math.min(parseInt(columnsPerPage), 5);
+    
     // Calculate how many items each column should contain
-    const columnsPerPageValue = parseInt(columnsPerPage);
     const itemsPerColumn = Math.ceil(pages.length / columnsPerPageValue);
     
     // Track the current column position
@@ -931,7 +967,7 @@ app.post('/api/mishna-berura-excel', async (req, res) => {
         for (let i = 0; i < totalCols; i++) {
           const cell = worksheet.getCell(row, currentColumn + i);
           
-          // Add borders
+          // Add borders only to data cells
           cell.border = {
             top: { style: 'thin' },
             left: { style: 'thin' },
@@ -951,6 +987,21 @@ app.post('/api/mishna-berura-excel', async (req, res) => {
       
       // Move to next set of columns
       currentColumn = currentColumn + headers.length;
+    }
+    
+    // Remove any borders from cells beyond the actual data area
+    for (let row = 1; row <= worksheet.rowCount; row++) {
+      // Find the maximum column used by actual data
+      const headerLength = includeDateColumn ? reviews + 2 : reviews + 1;
+      const maxDataColumn = columnsPerPageValue * headerLength;
+      
+      // Remove borders from any cells beyond the data area
+      for (let col = maxDataColumn + 1; col <= worksheet.columnCount; col++) {
+        const cell = worksheet.getCell(row, col);
+        if (cell && cell.border) {
+          cell.border = undefined;
+        }
+      }
     }
     
     // Set print options

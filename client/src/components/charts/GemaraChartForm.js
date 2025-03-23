@@ -161,7 +161,7 @@ const GemaraChartForm = ({ tractateData }) => {
                   required
                 >
                   <option value="" disabled>Choose a Masechet</option>
-                  {Object.keys(tractateData).sort().map(tractate => (
+                  {Object.keys(tractateData).map(tractate => (
                     <option key={tractate} value={tractate}>
                       {tractate} ({tractateData[tractate]} daf)
                     </option>

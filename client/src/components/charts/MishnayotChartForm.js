@@ -19,6 +19,24 @@ const range = (start, end) => {
   return result;
 };
 
+// Helper to get mishnayot count for a specific perek
+const getMishnahCount = (seder, masechet, perek) => {
+  // Look up in the detailed data structure
+  const sedarimData = mishnayotData.sedarim;
+  if (!sedarimData) return 10; // Default fallback
+
+  const sederData = sedarimData.find(s => s.name === seder);
+  if (!sederData) return 10;
+
+  const masechetData = sederData.masechtot.find(m => m.name === masechet);
+  if (!masechetData) return 10;
+
+  const perekData = masechetData.perakim.find(p => p.perek === parseInt(perek));
+  if (!perekData) return 10;
+
+  return perekData.mishnayot;
+};
+
 const MishnayotChartForm = () => {
   const { language } = useLanguage();
   
@@ -79,11 +97,21 @@ const MishnayotChartForm = () => {
   
   // Effect to handle mishnah count changes based on chapter selection
   useEffect(() => {
-    // These are just placeholder values - in a real application you would fetch
-    // the actual count of mishnayot for each chapter
-    setMaxMishnahStart(10); 
-    setMaxMishnahEnd(10);
-  }, [formData.startChapter, formData.endChapter]);
+    if (formData.seder && formData.tractate) {
+      const startMishnahCount = getMishnahCount(formData.seder, formData.tractate, formData.startChapter);
+      const endMishnahCount = getMishnahCount(formData.seder, formData.tractate, formData.endChapter);
+      
+      setMaxMishnahStart(startMishnahCount);
+      setMaxMishnahEnd(endMishnahCount);
+      
+      // If current values are out of bounds, adjust them
+      setFormData(prev => ({
+        ...prev,
+        startMishnah: prev.startMishnah > startMishnahCount ? 1 : prev.startMishnah,
+        endMishnah: prev.endMishnah > endMishnahCount ? endMishnahCount : prev.endMishnah
+      }));
+    }
+  }, [formData.startChapter, formData.endChapter, formData.seder, formData.tractate]);
   
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -104,7 +132,9 @@ const MishnayotChartForm = () => {
       let currentChapter = parseInt(formData.startChapter);
       let currentMishnah = formData.chaptersPerDay ? 1 : parseInt(formData.startMishnah);
       const endChapter = parseInt(formData.endChapter);
-      const endMishnah = formData.chaptersPerDay ? 10 : parseInt(formData.endMishnah);
+      const endMishnah = formData.chaptersPerDay ? 
+        getMishnahCount(formData.seder, formData.tractate, endChapter) : 
+        parseInt(formData.endMishnah);
       
       if (formData.chaptersPerDay) {
         // Chapter mode - include entire chapters
@@ -123,7 +153,8 @@ const MishnayotChartForm = () => {
           currentMishnah++;
           
           // Move to next chapter when we reach the end of the current chapter
-          if (currentMishnah > maxMishnahStart) {
+          const currentChapterMishnahCount = getMishnahCount(formData.seder, formData.tractate, currentChapter);
+          if (currentMishnah > currentChapterMishnahCount) {
             currentMishnah = 1;
             currentChapter++;
           }
@@ -191,7 +222,7 @@ const MishnayotChartForm = () => {
                   required
                 >
                   <option value="" disabled>Choose a Seder</option>
-                  {Object.keys(mishnayotData).map(seder => (
+                  {Object.keys(mishnayotData).filter(key => key !== "sedarim").map(seder => (
                     <option key={seder} value={seder}>{seder}</option>
                   ))}
                 </select>
