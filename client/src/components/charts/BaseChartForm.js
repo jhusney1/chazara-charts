@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { useLanguage } from '../Header';
 import { 
@@ -9,14 +9,36 @@ import {
 // Tooltip component for helping users understand form fields
 export const Tooltip = ({ text }) => {
   const [show, setShow] = useState(false);
+  const timeoutRef = useRef(null);
+  const tooltipRef = useRef(null);
+  
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+  
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setShow(true), 100);
+  };
+  
+  const handleMouseLeave = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setShow(false), 300);
+  };
   
   return (
-    <div className="relative ml-1">
+    <div className="relative ml-1 inline-block">
       <button
         type="button"
-        className="text-gray-400 hover:text-indigo-500 focus:outline-none"
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
+        className="text-gray-400 hover:text-indigo-500 focus:outline-none focus:text-indigo-500"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onFocus={handleMouseEnter}
+        onBlur={handleMouseLeave}
+        aria-label="Additional information"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm-.25 3.75a.75.75 0 01.75-.75h.01a.75.75 0 01.75.75v3.5a.75.75 0 01-.75.75h-.01a.75.75 0 01-.75-.75v-3.5z" clipRule="evenodd" />
@@ -24,9 +46,14 @@ export const Tooltip = ({ text }) => {
       </button>
       
       {show && (
-        <div className="absolute left-0 transform -translate-x-1/2 -translate-y-full mt-1 w-48 px-2 py-1 bg-gray-800 text-white text-xs rounded shadow-lg z-10">
+        <div 
+          ref={tooltipRef}
+          className="absolute left-0 top-0 transform -translate-y-full -translate-x-1/4 mt-[-8px] w-48 px-2 py-1 bg-gray-800 text-white text-xs rounded shadow-lg z-10"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
           {text}
-          <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-2 h-2 bg-gray-800 rotate-45"></div>
+          <div className="absolute left-[10px] transform top-full w-2 h-2 bg-gray-800 rotate-45"></div>
         </div>
       )}
     </div>
