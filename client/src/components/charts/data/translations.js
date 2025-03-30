@@ -6,15 +6,15 @@ const translations = {
   en: {
     // Common translations
     reviews: 'Number of Reviews',
-    useHebrew: 'Use Hebrew letters for numbers',
+    useHebrew: 'Use Hebrew Letters for Numbering',
     downloadFormat: 'Download Format',
     excel: 'Excel Spreadsheet',
-    excelDesc: 'Editable format for digital use',
+    excelDesc: 'For digital editing',
     pdf: 'PDF Document',
-    pdfDesc: 'Printable format for physical use',
+    pdfDesc: 'For printing',
     generating: 'Generating...',
     generate: 'Generate Chart',
-    columnsPerPage: 'Columns per Page',
+    columnsPerPage: 'Columns Per Page',
     includeDateColumn: 'Include Date Column',
     startDate: 'Start Date',
     customization: 'Chart Customization',
@@ -28,7 +28,7 @@ const translations = {
     dafPerDay: 'Learning Mode',
     dafMode: 'Daf Mode',
     amudMode: 'Amud Mode',
-    footer: 'This will generate a chart for the selected tractate with columns for the date learned and each review session.',
+    footer: 'This will generate a chart for the selected masechet with columns for the date learned and each review session.',
     
     // Mishnayot chart specific
     mishnayotGenerator: 'Mishnayot Chart Generator',
@@ -40,19 +40,19 @@ const translations = {
     chaptersPerDay: 'Learning Mode',
     chapterMode: 'Chapter Mode',
     mishnahMode: 'Mishnah Mode',
-    mishnayotFooter: 'This will generate a chart for the selected Mishnayot tractate with columns for the date learned and each review session.',
+    mishnayotFooter: 'This will generate a chart for the selected Mishnayot with columns for the date learned and each review session.',
     
     // Mishna Berura chart specific
     mishnaBeruraGenerator: 'Mishna Berura Chart Generator',
-    selectSection: 'Select Section',
+    selectSection: 'Select Book (Chelek)',
     selectTopic: 'Select Topic',
     startingSiman: 'Starting Siman',
-    startingSeif: 'Starting Se\'if',
     endingSiman: 'Ending Siman',
-    endingSeif: 'Ending Se\'if',
-    simanPerDay: 'Learning Mode',
+    selectionMode: 'Selection Mode',
+    topicMode: 'Topic Mode',
+    bookMode: 'Book Mode',
+    customMode: 'Custom Mode',
     simanMode: 'Siman Mode',
-    seifMode: 'Se\'if Mode',
     mishnaBeruraFooter: 'This will generate a chart for the selected Mishna Berura section with columns for the date learned and each review session.',
     
     tooltips: {
@@ -60,8 +60,7 @@ const translations = {
       includeDateColumn: 'Include a column for marking the date when each item was learned',
       startDate: 'If date column is included, start filling dates from this day',
       dafPerDay: 'Switch between Daf mode (full page) and Amud mode (half page)',
-      chaptersPerDay: 'Switch between Chapter mode (full chapter) and Mishnah mode (individual mishnah)',
-      simanPerDay: 'Switch between Siman mode (full siman) and Se\'if mode (individual se\'if)'
+      chaptersPerDay: 'Switch between Chapter mode (full chapter) and Mishnah mode (individual mishnah)'
     }
   },
   he: {
@@ -108,12 +107,12 @@ const translations = {
     selectSection: 'בחר חלק',
     selectTopic: 'בחר נושא',
     startingSiman: 'סימן התחלה',
-    startingSeif: 'סעיף התחלה',
     endingSiman: 'סימן סיום',
-    endingSeif: 'סעיף סיום',
-    simanPerDay: 'מצב לימוד',
+    selectionMode: 'מצב בחירה',
+    topicMode: 'מצב נושא',
+    bookMode: 'מצב ספר',
+    customMode: 'מצב מותאם אישית',
     simanMode: 'מצב סימן',
-    seifMode: 'מצב סעיף',
     mishnaBeruraFooter: 'זה ייצור טבלה למשנה ברורה שנבחרה עם עמודות לתאריך הלימוד ולכל חזרה.',
     
     tooltips: {
@@ -121,8 +120,7 @@ const translations = {
       includeDateColumn: 'כלול עמודה לסימון התאריך שבו נלמד כל פריט',
       startDate: 'אם עמודת תאריך נכללת, התחל למלא תאריכים מיום זה',
       dafPerDay: 'בחר בין מצב דף (עמוד שלם) ומצב עמוד (חצי עמוד)',
-      chaptersPerDay: 'בחר בין מצב פרק (פרק שלם) ומצב משנה (משנה בודדת)',
-      simanPerDay: 'בחר בין מצב סימן (סימן שלם) ומצב סעיף (סעיף בודד)'
+      chaptersPerDay: 'בחר בין מצב פרק (פרק שלם) ומצב משנה (משנה בודדת)'
     }
   }
 };

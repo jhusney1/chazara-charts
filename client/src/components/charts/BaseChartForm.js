@@ -140,12 +140,36 @@ export const GenerateButton = ({ loading, generatingText, generateText }) => {
 // Common chart download functionality
 export const downloadChart = async (endpoint, requestData, filename, format, setLoading) => {
   try {
+    console.log(`Sending request to ${endpoint} with format ${format}`);
+    console.log('Request data:', JSON.stringify(requestData, null, 2));
+    
     const response = await axios({
       url: endpoint,
       method: 'POST',
       data: requestData,
-      responseType: 'blob'
+      responseType: 'blob',
+      timeout: 30000 // 30 second timeout
     });
+    
+    console.log('Response received:', response.status, response.statusText);
+    
+    if (response.status !== 200) {
+      throw new Error(`Server returned status code ${response.status}`);
+    }
+    
+    // Check for error response that might be JSON instead of a blob
+    const contentType = response.headers['content-type'];
+    if (contentType && contentType.includes('application/json')) {
+      // Convert blob to text to read the error
+      const errorText = await response.data.text();
+      const errorJson = JSON.parse(errorText);
+      throw new Error(errorJson.error || 'Unknown server error');
+    }
+    
+    // Make sure we have data
+    if (!response.data || response.data.size === 0) {
+      throw new Error('Server returned empty response');
+    }
     
     // Create download link
     const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
@@ -159,7 +183,52 @@ export const downloadChart = async (endpoint, requestData, filename, format, set
     return true;
   } catch (error) {
     console.error('Error generating chart:', error);
-    alert('Error generating chart. Please try again.');
+    
+    // Try to extract the detailed error message from the response if available
+    let errorMessage = 'Error generating chart. Please try again.';
+    
+    if (error.response) {
+      console.error('Error response:', error.response);
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      if (error.response.data) {
+        if (error.response.data instanceof Blob) {
+          try {
+            // Try to parse blob data as text
+            const text = await error.response.data.text();
+            if (text) {
+              try {
+                // Try to parse as JSON
+                const json = JSON.parse(text);
+                if (json.error) {
+                  errorMessage = `Error: ${json.error}`;
+                  if (json.details) {
+                    console.error('Error details:', json.details);
+                    errorMessage += ` Details: ${json.details}`;
+                  }
+                }
+              } catch (jsonError) {
+                // If not JSON, just show the text
+                errorMessage = `Server error: ${text.substring(0, 100)}...`;
+              }
+            }
+          } catch (blobError) {
+            console.error('Error reading blob:', blobError);
+          }
+        } else if (typeof error.response.data === 'object') {
+          // If it's already an object
+          errorMessage = `Error: ${error.response.data.error || 'Unknown server error'}`;
+        }
+      }
+    } else if (error.request) {
+      // The request was made but no response was received
+      errorMessage = 'Network error: No response received from server';
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      errorMessage = `Request error: ${error.message}`;
+    }
+    
+    alert(errorMessage);
     return false;
   } finally {
     setLoading(false);

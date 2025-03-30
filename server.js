@@ -847,6 +847,8 @@ app.post('/api/mishnayot-pdf', async (req, res) => {
 // Mishna Berura Excel Generation endpoint
 app.post('/api/mishna-berura-excel', async (req, res) => {
   try {
+    console.log('Received request for Mishna Berura Excel:', JSON.stringify(req.body, null, 2));
+    
     // Merge default settings with request body
     const { 
       section = '',
@@ -856,12 +858,15 @@ app.post('/api/mishna-berura-excel', async (req, res) => {
       useHebrew = defaultChartSettings.useHebrew,
       columnsPerPage = defaultChartSettings.columnsPerPage,
       includeDateColumn = defaultChartSettings.includeDateColumn,
-      startDate = new Date().toISOString().split('T')[0],
-      simanPerDay = true
+      startDate = new Date().toISOString().split('T')[0]
     } = req.body;
     
     if (!section || !topic) {
       return res.status(400).json({ error: 'Please provide both section and topic' });
+    }
+    
+    if (!Array.isArray(pages) || pages.length === 0) {
+      return res.status(400).json({ error: 'No valid pages provided' });
     }
     
     // Create a new Excel workbook
@@ -872,10 +877,28 @@ app.post('/api/mishna-berura-excel', async (req, res) => {
     workbook.modified = new Date();
     
     // Create a worksheet for the topic
-    const worksheet = workbook.addWorksheet(topic);
+    const worksheetName = topic.substring(0, 31); // Excel limits worksheet names to 31 chars
+    const worksheet = workbook.addWorksheet(worksheetName);
+    
+    // Add section information at the top
+    worksheet.mergeCells('A1:H1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = `Mishna Berura: ${topic} (${section})`;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center' };
+    
+    // Add study instructions
+    worksheet.mergeCells('A2:H2');
+    const instructionsCell = worksheet.getCell('A2');
+    instructionsCell.value = 'Learning & Review Tracking Chart - Check off each box after completing a review';
+    instructionsCell.font = { italic: true, size: 10 };
+    instructionsCell.alignment = { horizontal: 'center' };
+    
+    // Start the actual chart content from row 4
+    const headerRow = 4;
     
     // Limit columns per page to prevent memory issues
-    const columnsPerPageValue = Math.min(parseInt(columnsPerPage), 5);
+    const columnsPerPageValue = Math.min(parseInt(columnsPerPage) || 1, 5);
     
     // Calculate how many items each column should contain
     const itemsPerColumn = Math.ceil(pages.length / columnsPerPageValue);
@@ -887,25 +910,25 @@ app.post('/api/mishna-berura-excel', async (req, res) => {
     for (let colIndex = 0; colIndex < columnsPerPageValue; colIndex++) {
       // Define headers for this column set
       const headers = [];
-      headers.push(simanPerDay ? 'Siman' : 'Se\'if');
+      headers.push(`Siman`);
       
       if (includeDateColumn) {
-        headers.push(`Date`);
+        headers.push(`Date Learned`);
       }
       
       for (let i = 1; i <= reviews; i++) {
-        headers.push(`${i}`);
+        headers.push(`Review ${i}`);
       }
       
       // Add the headers to the correct columns
       for (let i = 0; i < headers.length; i++) {
-        const cell = worksheet.getCell(1, currentColumn);
+        const cell = worksheet.getCell(headerRow, currentColumn);
         cell.value = headers[i];
         cell.font = { bold: true, color: { argb: 'FFFFFF' } };
         cell.fill = {
           type: 'pattern',
           pattern: 'solid',
-          fgColor: { argb: excelStyles.headerColor }
+          fgColor: { argb: '0D5C63' } // Teal color for headers
         };
         cell.alignment = { vertical: 'middle', horizontal: 'center' };
         
@@ -928,6 +951,9 @@ app.post('/api/mishna-berura-excel', async (req, res) => {
       
       // Starting date for this column
       let currentDate = new Date(startDate);
+      if (isNaN(currentDate.getTime())) {
+        currentDate = new Date(); // Use current date if invalid date provided
+      }
       currentDate.setDate(currentDate.getDate() + startIndex);
       
       // Reset column position for data rows
@@ -935,11 +961,16 @@ app.post('/api/mishna-berura-excel', async (req, res) => {
       
       // Add data for this column
       columnPages.forEach((page, rowIndex) => {
-        const row = rowIndex + 2; // +2 because row 1 is headers
+        const row = rowIndex + headerRow + 1; // +headerRow+1 because headers are at position headerRow
         
-        // Add siman/se'if
-        const itemCell = worksheet.getCell(row, currentColumn);
-        itemCell.value = useHebrew ? convertToHebrew(page) : page;
+        // Add siman number
+        const simanCell = worksheet.getCell(row, currentColumn);
+        try {
+          simanCell.value = useHebrew ? convertToHebrew(page) : page;
+        } catch (error) {
+          console.error('Error converting page number:', error);
+          simanCell.value = page; // Fallback to original value if conversion fails
+        }
         
         // Current data column position
         let dataColumn = currentColumn + 1;
@@ -947,7 +978,12 @@ app.post('/api/mishna-berura-excel', async (req, res) => {
         // Add date if enabled
         if (includeDateColumn) {
           const dateCell = worksheet.getCell(row, dataColumn);
-          dateCell.value = currentDate.toLocaleDateString();
+          try {
+            dateCell.value = currentDate.toLocaleDateString();
+          } catch (error) {
+            console.error('Error formatting date:', error);
+            dateCell.value = ''; // Empty cell if date formatting fails
+          }
           currentDate.setDate(currentDate.getDate() + 1);
           dataColumn++;
         }
@@ -957,7 +993,7 @@ app.post('/api/mishna-berura-excel', async (req, res) => {
           fill: {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: { argb: rowIndex % 2 === 0 ? excelStyles.alternateRowColor : 'FFFFFF' }
+            fgColor: { argb: rowIndex % 2 === 0 ? 'F0F7F4' : 'FFFFFF' } // Light teal for alternating rows
           }
         };
         
@@ -982,6 +1018,11 @@ app.post('/api/mishna-berura-excel', async (req, res) => {
           if (rowIndex % 2 === 0) {
             cell.fill = rowStyle.fill;
           }
+          
+          // Add checkbox symbol for review columns
+          if (i >= (includeDateColumn ? 2 : 1)) {
+            cell.value = '☐';
+          }
         }
       });
       
@@ -1004,12 +1045,20 @@ app.post('/api/mishna-berura-excel', async (req, res) => {
       }
     }
     
+    // Add footer with instructions
+    const footerRow = worksheet.rowCount + 2;
+    worksheet.mergeCells(`A${footerRow}:H${footerRow}`);
+    const footerCell = worksheet.getCell(`A${footerRow}`);
+    footerCell.value = 'Generated by Chazara Charts - Track your progress through Mishna Berura';
+    footerCell.font = { italic: true, size: 10 };
+    footerCell.alignment = { horizontal: 'center' };
+    
     // Set print options
     worksheet.pageSetup = printOptions.excel;
     
     // Freeze the header row
     worksheet.views = [
-      { state: 'frozen', xSplit: 0, ySplit: 1, activeCell: 'A2' }
+      { state: 'frozen', xSplit: 0, ySplit: headerRow, activeCell: `A${headerRow+1}` }
     ];
     
     // Set response headers
@@ -1022,13 +1071,15 @@ app.post('/api/mishna-berura-excel', async (req, res) => {
     
   } catch (error) {
     console.error('Error generating Mishna Berura Excel file:', error);
-    res.status(500).json({ error: 'Failed to generate Excel file', details: error.message });
+    res.status(500).json({ error: 'Failed to generate Excel file', details: error.message, stack: error.stack });
   }
 });
 
 // Mishna Berura PDF Generation endpoint
 app.post('/api/mishna-berura-pdf', async (req, res) => {
   try {
+    console.log('Received request for Mishna Berura PDF:', JSON.stringify(req.body, null, 2));
+    
     // Merge default settings with request body
     const { 
       section = '',
@@ -1038,19 +1089,22 @@ app.post('/api/mishna-berura-pdf', async (req, res) => {
       useHebrew = defaultChartSettings.useHebrew,
       columnsPerPage = defaultChartSettings.columnsPerPage,
       includeDateColumn = defaultChartSettings.includeDateColumn,
-      startDate = new Date().toISOString().split('T')[0],
-      simanPerDay = true
+      startDate = new Date().toISOString().split('T')[0]
     } = req.body;
     
     if (!section || !topic) {
       return res.status(400).json({ error: 'Please provide both section and topic' });
     }
     
+    if (!Array.isArray(pages) || pages.length === 0) {
+      return res.status(400).json({ error: 'No valid pages provided' });
+    }
+    
     // Create a PDF document
     const doc = new PDFDocument({
       layout: 'landscape',
       size: 'A4',
-      margin: pdfStyles.pageMargin,
+      margin: 50, // Use a simple numeric margin if pdfStyles.pageMargin is causing issues
       info: {
         Title: `${topic} Mishna Berura Chart`,
         Author: 'Chazara Charts',
@@ -1065,149 +1119,217 @@ app.post('/api/mishna-berura-pdf', async (req, res) => {
     // Pipe the PDF to the response
     doc.pipe(res);
     
-    // Title
-    doc.fontSize(pdfStyles.titleFontSize)
-       .font(pdfStyles.boldFont)
-       .text(`${topic} Mishna Berura Chart`, {
-         align: 'center'
-       });
-    
-    doc.moveDown();
-    
-    // Calculate how many items each column should contain
-    const columnsPerPageValue = parseInt(columnsPerPage);
-    const itemsPerColumn = Math.ceil(pages.length / columnsPerPageValue);
-    
-    // Calculate measurements for the table
-    const pageWidth = doc.page.width - 2 * pdfStyles.pageMargin;
-    const pageHeight = doc.page.height - 2 * pdfStyles.pageMargin - pdfStyles.titleFontSize - 30;
-    
-    const columnWidth = pageWidth / columnsPerPageValue;
-    const rowHeight = pdfStyles.rowHeight;
-    
-    // Calculate number of columns in each section
-    const reviewCols = reviews;
-    const dateCols = includeDateColumn ? 1 : 0;
-    const totalCols = 1 + dateCols + reviewCols; // 1 for the page/item column
-    
-    // Column widths
-    const cellWidth = columnWidth / totalCols;
-    
-    // Process each column set
-    for (let colSet = 0; colSet < columnsPerPageValue; colSet++) {
-      // Calculate which pages go in this column
-      const startIndex = colSet * itemsPerColumn;
-      const endIndex = Math.min(startIndex + itemsPerColumn, pages.length);
-      const columnPages = pages.slice(startIndex, endIndex);
+    try {
+      // Title with more context
+      doc.fontSize(16)
+         .font('Helvetica-Bold')
+         .text(`Mishna Berura: ${topic} (${section})`, {
+           align: 'center'
+         });
       
-      // Starting date for this column
-      let currentDate = new Date(startDate);
-      currentDate.setDate(currentDate.getDate() + startIndex);
+      // Add subtitle with instructions
+      doc.fontSize(10)
+         .font('Helvetica-Oblique')
+         .text('Learning & Review Tracking Chart - Check off each box after completing a review', {
+           align: 'center'
+         });
       
-      // X position for this column set
-      const colX = pdfStyles.pageMargin + colSet * columnWidth;
+      doc.moveDown(2);
       
-      // Draw column headers
-      doc.font(pdfStyles.boldFont)
-         .fontSize(pdfStyles.headerFontSize);
+      // Calculate how many items each column should contain
+      const columnsPerPageValue = parseInt(columnsPerPage) || 1;
+      const itemsPerColumn = Math.ceil(pages.length / columnsPerPageValue);
       
-      // Header cells
-      const headerCells = [simanPerDay ? 'Siman' : 'Se\'if'];
+      // Calculate measurements for the table
+      const pageWidth = doc.page.width - 100; // 50 margin on each side
+      const pageHeight = doc.page.height - 150; // Allow room for title and footer
       
-      if (includeDateColumn) {
-        headerCells.push('Date');
-      }
+      const columnWidth = pageWidth / columnsPerPageValue;
+      const rowHeight = 20; // Fixed row height
       
-      for (let i = 1; i <= reviews; i++) {
-        headerCells.push(`${i}`);
-      }
+      // Calculate number of columns in each section
+      const reviewCols = parseInt(reviews) || 3;
+      const dateCols = includeDateColumn ? 1 : 0;
+      const totalCols = 1 + dateCols + reviewCols; // 1 for the siman column
       
-      // Draw headers
-      headerCells.forEach((text, i) => {
-        const x = colX + i * cellWidth;
-        doc.fillColor(pdfStyles.headerTextColor)
-           .rect(x, pdfStyles.pageMargin + pdfStyles.titleFontSize + 30, cellWidth, rowHeight)
-           .fill();
+      // Column widths
+      const cellWidth = columnWidth / totalCols;
+      
+      // Process each column set
+      for (let colSet = 0; colSet < columnsPerPageValue; colSet++) {
+        // Calculate which pages go in this column
+        const startIndex = colSet * itemsPerColumn;
+        const endIndex = Math.min(startIndex + itemsPerColumn, pages.length);
+        const columnPages = pages.slice(startIndex, endIndex);
         
-        doc.fillColor(pdfStyles.headerFillColor)
-           .text(
-             text,
-             x + pdfStyles.cellPadding,
-             pdfStyles.pageMargin + pdfStyles.titleFontSize + 30 + pdfStyles.cellPadding,
-             {
-               width: cellWidth - 2 * pdfStyles.cellPadding,
-               height: rowHeight - 2 * pdfStyles.cellPadding,
-               align: 'center'
-             }
-           );
-      });
-      
-      // Draw data rows
-      doc.font(pdfStyles.regularFont)
-         .fontSize(pdfStyles.bodyFontSize);
-      
-      columnPages.forEach((page, rowIndex) => {
-        const y = pdfStyles.pageMargin + pdfStyles.titleFontSize + 30 + rowHeight * (rowIndex + 1);
-        
-        // Alternate row colors
-        if (rowIndex % 2 === 0) {
-          doc.fillColor(pdfStyles.alternateRowColor)
-             .rect(colX, y, columnWidth, rowHeight)
-             .fill();
+        // Starting date for this column
+        let currentDate = new Date(startDate);
+        if (isNaN(currentDate.getTime())) {
+          currentDate = new Date(); // Use current date if invalid date provided
         }
+        currentDate.setDate(currentDate.getDate() + startIndex);
         
-        // Draw item cell
-        doc.fillColor(pdfStyles.textColor)
-           .rect(colX, y, cellWidth, rowHeight)
-           .strokeColor(pdfStyles.borderColor)
-           .stroke();
+        // X position for this column set
+        const colX = 50 + colSet * columnWidth;
         
-        doc.text(
-          useHebrew ? convertToHebrew(page) : page,
-          colX + pdfStyles.cellPadding,
-          y + pdfStyles.cellPadding,
-          {
-            width: cellWidth - 2 * pdfStyles.cellPadding,
-            height: rowHeight - 2 * pdfStyles.cellPadding,
-            align: 'center'
-          }
-        );
+        // Draw column headers
+        doc.font('Helvetica-Bold')
+           .fontSize(10);
         
-        // Current x position for data cells
-        let currX = colX + cellWidth;
+        // Header cells
+        const headerCells = ['Siman'];
         
-        // Draw date cell if enabled
         if (includeDateColumn) {
-          doc.rect(currX, y, cellWidth, rowHeight)
-             .strokeColor(pdfStyles.borderColor)
-             .stroke();
-          
-          doc.text(
-            currentDate.toLocaleDateString(),
-            currX + pdfStyles.cellPadding,
-            y + pdfStyles.cellPadding,
-            {
-              width: cellWidth - 2 * pdfStyles.cellPadding,
-              height: rowHeight - 2 * pdfStyles.cellPadding,
-              align: 'center'
-            }
-          );
-          
-          // Increment date
-          currentDate.setDate(currentDate.getDate() + 1);
-          
-          currX += cellWidth;
+          headerCells.push('Date Learned');
         }
         
-        // Draw review cells
-        for (let i = 0; i < reviews; i++) {
-          doc.rect(currX, y, cellWidth, rowHeight)
-             .strokeColor(pdfStyles.borderColor)
+        for (let i = 1; i <= reviewCols; i++) {
+          headerCells.push(`Review ${i}`);
+        }
+        
+        // Draw headers
+        headerCells.forEach((text, i) => {
+          const x = colX + i * cellWidth;
+          doc.fillColor('#0D5C63') // Teal header background
+             .rect(x, 120, cellWidth, rowHeight)
+             .fill();
+          
+          doc.fillColor('#FFFFFF') // White text on teal
+             .text(
+               text,
+               x + 3,
+               120 + 6,
+               {
+                 width: cellWidth - 6,
+                 align: 'center'
+               }
+             );
+        });
+        
+        // Draw data rows
+        doc.font('Helvetica')
+           .fontSize(9);
+        
+        columnPages.forEach((page, rowIndex) => {
+          const y = 120 + rowHeight * (rowIndex + 1);
+          
+          // Alternate row colors
+          if (rowIndex % 2 === 0) {
+            doc.fillColor('#F0F7F4') // Light teal for alternating rows
+               .rect(colX, y, columnWidth, rowHeight)
+               .fill();
+          }
+          
+          // Draw siman cell
+          doc.fillColor('#000000')
+             .rect(colX, y, cellWidth, rowHeight)
+             .strokeColor('#444444')
              .stroke();
           
-          currX += cellWidth;
-        }
-      });
+          try {
+            doc.text(
+              useHebrew ? convertToHebrew(page) : page,
+              colX + 3,
+              y + 6,
+              {
+                width: cellWidth - 6,
+                align: 'center'
+              }
+            );
+          } catch (error) {
+            console.error('Error rendering page number:', error);
+            doc.text(
+              String(page),
+              colX + 3,
+              y + 6,
+              {
+                width: cellWidth - 6,
+                align: 'center'
+              }
+            );
+          }
+          
+          // Current x position for data cells
+          let currX = colX + cellWidth;
+          
+          // Draw date cell if enabled
+          if (includeDateColumn) {
+            doc.rect(currX, y, cellWidth, rowHeight)
+               .strokeColor('#444444')
+               .stroke();
+            
+            try {
+              doc.text(
+                currentDate.toLocaleDateString(),
+                currX + 3,
+                y + 6,
+                {
+                  width: cellWidth - 6,
+                  align: 'center'
+                }
+              );
+            } catch (error) {
+              console.error('Error formatting date:', error);
+              // Skip date if there's an error
+            }
+            
+            // Increment date
+            currentDate.setDate(currentDate.getDate() + 1);
+            
+            currX += cellWidth;
+          }
+          
+          // Draw review cells
+          for (let i = 0; i < reviewCols; i++) {
+            doc.rect(currX, y, cellWidth, rowHeight)
+               .strokeColor('#444444')
+               .stroke();
+               
+            // Add a checkbox symbol in each review cell
+            const checkboxSize = 8;
+            const checkboxX = currX + (cellWidth/2) - (checkboxSize/2);
+            const checkboxY = y + (rowHeight/2) - (checkboxSize/2);
+            
+            doc.rect(checkboxX, checkboxY, checkboxSize, checkboxSize)
+               .stroke();
+            
+            currX += cellWidth;
+          }
+        });
+      }
+      
+      // Add footer
+      const footerY = doc.page.height - 30;
+      doc.fontSize(8)
+         .font('Helvetica-Oblique')
+         .text(
+           'Generated by Chazara Charts - Track your progress through Mishna Berura',
+           50,
+           footerY,
+           { 
+             width: doc.page.width - 100,
+             align: 'center'
+           }
+         );
+      
+      // Add page numbers
+      doc.fontSize(8)
+         .font('Helvetica')
+         .text(
+           `Page ${doc._pageNumber} | ${new Date().toLocaleDateString()}`,
+           50,
+           footerY - 15,
+           { 
+             width: doc.page.width - 100,
+             align: 'right'
+           }
+         );
+      
+    } catch (innerError) {
+      console.error('Error during PDF generation:', innerError);
+      // If an error occurs during PDF generation, we need to end the document
+      // so the response doesn't hang
+      doc.text(`Error generating PDF: ${innerError.message}`, 100, 100);
     }
     
     // Finalize the PDF
@@ -1215,7 +1337,10 @@ app.post('/api/mishna-berura-pdf', async (req, res) => {
     
   } catch (error) {
     console.error('Error generating Mishna Berura PDF file:', error);
-    res.status(500).json({ error: 'Failed to generate PDF file', details: error.message });
+    // If we've already piped to the response, we can't send a JSON error
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to generate PDF file', details: error.message, stack: error.stack });
+    }
   }
 });
 

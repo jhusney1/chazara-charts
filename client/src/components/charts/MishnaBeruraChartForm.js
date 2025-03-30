@@ -19,71 +19,136 @@ const range = (start, end) => {
   return result;
 };
 
+// Helper function to get all simanim in a chelek
+const getAllSimanimInChelek = (chelek) => {
+  let allSimanim = [];
+  Object.values(mishnaBeruraData[chelek]).forEach(topic => {
+    allSimanim = [...allSimanim, ...range(topic.start, topic.end)];
+  });
+  return allSimanim;
+};
+
+// Helper to get the topic for a specific siman
+const getTopicForSiman = (siman) => {
+  for (const chelek in mishnaBeruraData) {
+    for (const topic in mishnaBeruraData[chelek]) {
+      const { start, end } = mishnaBeruraData[chelek][topic];
+      if (siman >= start && siman <= end) {
+        return { topic, chelek };
+      }
+    }
+  }
+  return null;
+};
+
 const MishnaBeruraChartForm = () => {
   const { language } = useLanguage();
   
   const [formData, setFormData] = useState({
-    section: '',
+    selectionMode: 'topic', // 'topic', 'book', or 'custom'
+    chelek: '',
     topic: '',
     startSiman: 1,
-    startSeif: 1,
     endSiman: 1,
-    endSeif: 1,
     reviews: 3,
     useHebrew: false,
     format: 'excel',
     columnsPerPage: 1,
     includeDateColumn: true,
     startDate: new Date().toISOString().split('T')[0],
-    simanPerDay: true
   });
   
   const [loading, setLoading] = useState(false);
   const [simanRange, setSimanRange] = useState({ start: 1, end: 1 });
-  const [maxSeifStart, setMaxSeifStart] = useState(10);
-  const [maxSeifEnd, setMaxSeifEnd] = useState(10);
+  const [allTopics, setAllTopics] = useState([]);
   
   // Get translation based on current language
   const t = translations[language === 'he' ? 'he' : 'en'];
   
-  // Effect to update topic options when section changes
+  // Effect to handle selection mode changes
   useEffect(() => {
-    if (formData.section) {
+    if (formData.selectionMode === 'topic') {
+      setFormData(prev => ({
+        ...prev,
+        chelek: '',
+        topic: '',
+        startSiman: 1,
+        endSiman: 1
+      }));
+    } else if (formData.selectionMode === 'book') {
       setFormData(prev => ({
         ...prev,
         topic: '',
+        chelek: '',
         startSiman: 1,
-        startSeif: 1,
-        endSiman: 1,
-        endSeif: 1
+        endSiman: 1
+      }));
+    } else if (formData.selectionMode === 'custom') {
+      setFormData(prev => ({
+        ...prev,
+        chelek: '',
+        topic: '',
       }));
     }
-  }, [formData.section]);
+  }, [formData.selectionMode]);
+  
+  // Effect to update topic options when chelek changes in topic mode
+  useEffect(() => {
+    if (formData.chelek) {
+      const topics = Object.keys(mishnaBeruraData[formData.chelek]);
+      setAllTopics(topics);
+      
+      if (formData.selectionMode === 'book') {
+        // If in book mode, set the siman range to cover the entire chelek
+        let minSiman = Infinity;
+        let maxSiman = 0;
+        
+        Object.values(mishnaBeruraData[formData.chelek]).forEach(topic => {
+          minSiman = Math.min(minSiman, topic.start);
+          maxSiman = Math.max(maxSiman, topic.end);
+        });
+        
+        setFormData(prev => ({
+          ...prev,
+          startSiman: minSiman,
+          endSiman: maxSiman
+        }));
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          topic: '',
+        }));
+      }
+    }
+  }, [formData.chelek, formData.selectionMode]);
   
   // Effect to update siman options when topic changes
   useEffect(() => {
-    if (formData.section && formData.topic && mishnaBeruraData[formData.section][formData.topic]) {
-      const { start, end } = mishnaBeruraData[formData.section][formData.topic];
+    if (formData.selectionMode === 'topic' && formData.chelek && formData.topic && mishnaBeruraData[formData.chelek][formData.topic]) {
+      const { start, end } = mishnaBeruraData[formData.chelek][formData.topic];
       setSimanRange({ start, end });
       
       // Update siman ranges when a new topic is selected
       setFormData(prev => ({
         ...prev,
         startSiman: start,
-        endSiman: end,
-        startSeif: 1,
-        endSeif: 1
+        endSiman: end
       }));
     }
-  }, [formData.topic]);
+  }, [formData.topic, formData.selectionMode]);
   
-  // Effect to handle se'if count changes based on siman selection
+  // Effect to validate custom siman range
   useEffect(() => {
-    // These are just placeholder values - in a real application you would fetch
-    // the actual count of se'ifim for each siman
-    setMaxSeifStart(10); 
-    setMaxSeifEnd(10);
-  }, [formData.startSiman, formData.endSiman]);
+    if (formData.selectionMode === 'custom') {
+      // Make sure startSiman <= endSiman
+      if (parseInt(formData.startSiman) > parseInt(formData.endSiman)) {
+        setFormData(prev => ({
+          ...prev,
+          endSiman: formData.startSiman
+        }));
+      }
+    }
+  }, [formData.startSiman, formData.selectionMode]);
   
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -101,54 +166,55 @@ const MishnaBeruraChartForm = () => {
     try {
       // Generate array of pages based on selection
       const pages = [];
-      let currentSiman = parseInt(formData.startSiman);
-      let currentSeif = formData.simanPerDay ? 1 : parseInt(formData.startSeif);
-      const endSiman = parseInt(formData.endSiman);
-      const endSeif = formData.simanPerDay ? 10 : parseInt(formData.endSeif);
+      let startSiman, endSiman;
       
-      if (formData.simanPerDay) {
-        // Siman mode - include entire simanim
-        for (let siman = currentSiman; siman <= endSiman; siman++) {
-          pages.push(`${siman}`);
-        }
+      if (formData.selectionMode === 'topic') {
+        // Topic mode - use the selected topic's siman range
+        startSiman = parseInt(formData.startSiman);
+        endSiman = parseInt(formData.endSiman);
+      } else if (formData.selectionMode === 'book') {
+        // Book mode - get all simanim in the selected chelek
+        startSiman = parseInt(formData.startSiman);
+        endSiman = parseInt(formData.endSiman);
       } else {
-        // Se'if mode - include individual se'ifim
-        while (
-          currentSiman < endSiman || 
-          (currentSiman === endSiman && currentSeif <= endSeif)
-        ) {
-          pages.push(`${currentSiman}:${currentSeif}`);
-          
-          // Move to next se'if
-          currentSeif++;
-          
-          // Move to next siman when we reach the end of the current siman
-          if (currentSeif > maxSeifStart) {
-            currentSeif = 1;
-            currentSiman++;
-          }
-        }
+        // Custom mode - use the custom siman range
+        startSiman = parseInt(formData.startSiman);
+        endSiman = parseInt(formData.endSiman);
+      }
+      
+      // Include simanim in the selected range
+      for (let siman = startSiman; siman <= endSiman; siman++) {
+        pages.push(`${siman}`);
+      }
+      
+      // Determine the topic name for display
+      let topicName = formData.topic;
+      if (formData.selectionMode === 'book') {
+        topicName = formData.chelek;
+      } else if (formData.selectionMode === 'custom') {
+        topicName = `Simanim ${startSiman}-${endSiman}`;
       }
       
       // Prepare request data
       const requestData = {
-        section: formData.section,
-        topic: formData.topic,
+        section: formData.chelek,
+        topic: topicName,
         reviews: formData.reviews,
         pages: pages,
         useHebrew: formData.useHebrew,
         columnsPerPage: formData.columnsPerPage,
         includeDateColumn: formData.includeDateColumn,
-        startDate: formData.startDate,
-        simanPerDay: formData.simanPerDay
+        startDate: formData.startDate
       };
+      
+      console.log('Sending request data:', JSON.stringify(requestData, null, 2));
       
       // Make API request based on format
       const endpoint = formData.format === 'excel' ? '/api/mishna-berura-excel' : '/api/mishna-berura-pdf';
       await downloadChart(
         endpoint, 
         requestData, 
-        `${formData.topic.replace(/\s+/g, '-').toLowerCase()}-mishna-berura-chart`, 
+        `${topicName.replace(/\s+/g, '-').toLowerCase()}-mishna-berura-chart`, 
         formData.format, 
         setLoading
       );
@@ -177,161 +243,148 @@ const MishnaBeruraChartForm = () => {
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Section Selection */}
+              {/* Selection Mode */}
               <div className="col-span-1 md:col-span-2">
-                <label htmlFor="section" className="block text-sm font-medium text-gray-700 mb-2">
-                  {t.selectSection}
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Review Generation Mode
                 </label>
-                <select
-                  id="section"
-                  name="section"
-                  value={formData.section}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                  required
-                >
-                  <option value="" disabled>Choose a Section</option>
-                  {Object.keys(mishnaBeruraData).map(section => (
-                    <option key={section} value={section}>{section}</option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div 
+                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                      formData.selectionMode === 'topic' 
+                        ? 'border-emerald-500 bg-emerald-50' 
+                        : 'border-gray-200 hover:border-emerald-300'
+                    }`}
+                    onClick={() => setFormData(prev => ({ ...prev, selectionMode: 'topic' }))}
+                  >
+                    <div className="font-medium mb-1">Option 1</div>
+                    <div className="text-sm text-gray-600">Choose one topic to review</div>
+                  </div>
+                  
+                  <div 
+                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                      formData.selectionMode === 'book' 
+                        ? 'border-emerald-500 bg-emerald-50' 
+                        : 'border-gray-200 hover:border-emerald-300'
+                    }`}
+                    onClick={() => setFormData(prev => ({ ...prev, selectionMode: 'book' }))}
+                  >
+                    <div className="font-medium mb-1">Option 2</div>
+                    <div className="text-sm text-gray-600">Choose a book (Chelek) to review</div>
+                  </div>
+                  
+                  <div 
+                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                      formData.selectionMode === 'custom' 
+                        ? 'border-emerald-500 bg-emerald-50' 
+                        : 'border-gray-200 hover:border-emerald-300'
+                    }`}
+                    onClick={() => setFormData(prev => ({ ...prev, selectionMode: 'custom' }))}
+                  >
+                    <div className="font-medium mb-1">Option 3</div>
+                    <div className="text-sm text-gray-600">Choose any siman range</div>
+                  </div>
+                </div>
               </div>
               
-              {/* Topic Selection */}
-              <div className="col-span-1 md:col-span-2">
-                <label htmlFor="topic" className="block text-sm font-medium text-gray-700 mb-2">
-                  {t.selectTopic}
-                </label>
-                <select
-                  id="topic"
-                  name="topic"
-                  value={formData.topic}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                  required
-                  disabled={!formData.section}
-                >
-                  <option value="" disabled>Choose a Topic</option>
-                  {formData.section && Object.keys(mishnaBeruraData[formData.section]).map(topic => (
-                    <option key={topic} value={topic}>
-                      {topic} ({mishnaBeruraData[formData.section][topic].start}-{mishnaBeruraData[formData.section][topic].end})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              {/* Learning Mode Toggle */}
-              <div className="col-span-1 md:col-span-2">
-                <div className="flex items-center mb-2">
-                  <label htmlFor="simanPerDay" className="block text-sm font-medium text-gray-700">
-                    {t.simanPerDay}
+              {/* Book (Chelek) Selection - for Topic and Book modes */}
+              {(formData.selectionMode === 'topic' || formData.selectionMode === 'book') && (
+                <div className="col-span-1 md:col-span-2">
+                  <label htmlFor="chelek" className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Book (Chelek)
                   </label>
-                  <Tooltip text={t.tooltips.simanPerDay} />
+                  <select
+                    id="chelek"
+                    name="chelek"
+                    value={formData.chelek}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                    required
+                  >
+                    <option value="" disabled>Choose a Book</option>
+                    {Object.keys(mishnaBeruraData).map(chelek => (
+                      <option key={chelek} value={chelek}>{chelek}</option>
+                    ))}
+                  </select>
                 </div>
-                
-                <div 
-                  className="relative inline-flex items-center cursor-pointer" 
-                  onClick={() => {
-                    setFormData(prev => ({
-                      ...prev,
-                      simanPerDay: !prev.simanPerDay
-                    }));
-                  }}
-                >
-                  <input 
-                    type="checkbox" 
-                    id="simanPerDay" 
-                    name="simanPerDay"
-                    checked={formData.simanPerDay} 
-                    onChange={handleChange} 
-                    className="sr-only peer" 
-                  />
-                  <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-emerald-600"></div>
-                  <span className="ml-3 text-sm font-medium text-gray-700">
-                    {formData.simanPerDay ? t.simanMode : t.seifMode}
-                  </span>
-                </div>
-              </div>
+              )}
               
-              {/* Starting Siman/Se'if */}
-              <div>
-                <label htmlFor="startSiman" className="block text-sm font-medium text-gray-700 mb-2">
-                  {t.startingSiman}
-                </label>
-                <select
-                  id="startSiman"
-                  name="startSiman"
-                  value={formData.startSiman}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                  required
-                  disabled={!formData.topic}
-                >
-                  {range(simanRange.start, Math.min(simanRange.end, formData.endSiman)).map(num => (
-                    <option key={num} value={num}>{num}</option>
-                  ))}
-                </select>
-                
-                {!formData.simanPerDay && (
-                  <div className="mt-2">
-                    <label htmlFor="startSeif" className="block text-sm font-medium text-gray-700 mb-2">
-                      {t.startingSeif}
+              {/* Topic Selection - only for Topic mode */}
+              {formData.selectionMode === 'topic' && formData.chelek && (
+                <div className="col-span-1 md:col-span-2">
+                  <label htmlFor="topic" className="block text-sm font-medium text-gray-700 mb-2">
+                    {t.selectTopic}
+                  </label>
+                  <select
+                    id="topic"
+                    name="topic"
+                    value={formData.topic}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                    required
+                  >
+                    <option value="" disabled>Choose a Topic</option>
+                    {allTopics.map(topic => (
+                      <option key={topic} value={topic}>
+                        {topic} ({mishnaBeruraData[formData.chelek][topic].start}-{mishnaBeruraData[formData.chelek][topic].end})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              
+              {/* Custom Siman Range - only for Custom mode */}
+              {formData.selectionMode === 'custom' && (
+                <>
+                  <div>
+                    <label htmlFor="startSiman" className="block text-sm font-medium text-gray-700 mb-2">
+                      Starting Siman
                     </label>
-                    <select
-                      id="startSeif"
-                      name="startSeif"
-                      value={formData.startSeif}
+                    <input
+                      type="number"
+                      id="startSiman"
+                      name="startSiman"
+                      min="1"
+                      max="697"
+                      value={formData.startSiman}
                       onChange={handleChange}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                       required
-                    >
-                      {range(1, maxSeifStart).map(num => (
-                        <option key={num} value={num}>{num}</option>
-                      ))}
-                    </select>
+                    />
+                    {formData.startSiman && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        {getTopicForSiman(formData.startSiman) ? 
+                          `From: ${getTopicForSiman(formData.startSiman).topic} (${getTopicForSiman(formData.startSiman).chelek})` : 
+                          ''}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              
-              {/* Ending Siman/Se'if */}
-              <div>
-                <label htmlFor="endSiman" className="block text-sm font-medium text-gray-700 mb-2">
-                  {t.endingSiman}
-                </label>
-                <select
-                  id="endSiman"
-                  name="endSiman"
-                  value={formData.endSiman}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                  required
-                  disabled={!formData.topic}
-                >
-                  {range(formData.startSiman, simanRange.end).map(num => (
-                    <option key={num} value={num}>{num}</option>
-                  ))}
-                </select>
-                
-                {!formData.simanPerDay && (
-                  <div className="mt-2">
-                    <label htmlFor="endSeif" className="block text-sm font-medium text-gray-700 mb-2">
-                      {t.endingSeif}
+                  
+                  <div>
+                    <label htmlFor="endSiman" className="block text-sm font-medium text-gray-700 mb-2">
+                      Ending Siman
                     </label>
-                    <select
-                      id="endSeif"
-                      name="endSeif"
-                      value={formData.endSeif}
+                    <input
+                      type="number"
+                      id="endSiman"
+                      name="endSiman"
+                      min={formData.startSiman}
+                      max="697"
+                      value={formData.endSiman}
                       onChange={handleChange}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                       required
-                    >
-                      {range(1, maxSeifEnd).map(num => (
-                        <option key={num} value={num}>{num}</option>
-                      ))}
-                    </select>
+                    />
+                    {formData.endSiman && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        {getTopicForSiman(formData.endSiman) ? 
+                          `To: ${getTopicForSiman(formData.endSiman).topic} (${getTopicForSiman(formData.endSiman).chelek})` : 
+                          ''}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
               
               {/* Number of Reviews */}
               <div className="col-span-1 md:col-span-2">
