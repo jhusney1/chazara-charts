@@ -26,12 +26,16 @@ WORKDIR /usr/src/app
 
 # Copy package.json and install production dependencies
 COPY package*.json ./
-RUN npm install --only=production
+RUN npm ci --omit=dev
 
 # Copy built app from build stage
 COPY --from=build /usr/src/app/client/build ./client/build
 COPY --from=build /usr/src/app/server.js ./
+COPY --from=build /usr/src/app/app.js ./
+COPY --from=build /usr/src/app/lib ./lib
 COPY --from=build /usr/src/app/data ./data
+# Hebrew-capable font, required for Hebrew numerals in generated PDFs
+COPY --from=build /usr/src/app/assets ./assets
 
 # Set environment to production
 ENV NODE_ENV=production

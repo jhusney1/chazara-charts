@@ -14,13 +14,20 @@ The chart system is designed to be extensible, allowing for easy addition of new
   - `Tooltip` - For displaying additional information about form fields
   - `FormatSelection` - For choosing between Excel and PDF formats
   - `GenerateButton` - The submission button with loading state
-  - `downloadChart` - Utility function for downloading generated charts
+  - `downloadChart` - Requests a chart and triggers the browser download,
+    reporting success and failure through toast notifications
+  - `MAX_REVIEWS` / `COLUMNS_PER_PAGE_OPTIONS` - Form limits that must stay in
+    step with the bounds enforced in `data/chartConfig.js` on the server
+
+Numeric form values are converted with `Number()` before being sent. HTML
+controls yield strings, and a string reaching the server's arithmetic used to
+produce a badly malformed chart.
 
 ### Chart Types
 
-- `GemaraChartForm.js` - For generating Talmud study charts
-- `MishnayotChartForm.js` - For generating Mishnayot study charts (placeholder)
-- `MishnaBeruraChartForm.js` - For generating Mishna Berura study charts (placeholder)
+- `GemaraChartForm.js` - Talmud study charts, by daf or by amud
+- `MishnayotChartForm.js` - Mishnayot charts, by chapter or by individual mishnah
+- `MishnaBeruraChartForm.js` - Mishna Berura charts, by topic, by chelek, or by custom siman range
 
 ### Support Files
 

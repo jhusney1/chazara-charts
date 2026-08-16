@@ -5,7 +5,9 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"  # Maps host port 3000 to container port 3000
+      # Host port is configurable so this can coexist with anything else
+      # already bound to 3000 on the host. Container port stays 3000.
+      - "${APP_PORT:-3000}:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -45,7 +47,9 @@ services:
       - "3002:3000"  # Maps host port 3002 to container port 3000
     environment:
       - NODE_ENV=development
-      - REACT_APP_API_URL=http://localhost:3001  # Points to API server
+      # Read by setupProxy.js inside the dev server (not the browser), so a
+      # compose service name is correct here. Browser code uses relative /api.
+      - API_PROXY_TARGET=http://api-dev:3001
     volumes:
       - ./client:/usr/src/app
       - /usr/src/app/node_modules

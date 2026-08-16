@@ -6,14 +6,19 @@ import ChartForm from './components/ChartForm';
 import Footer from './components/Footer';
 import axios from 'axios';
 
-// Configure axios defaults
-// In development: API runs on port 3001
-// In production: API and client are served from the same origin
-const API_URL = process.env.REACT_APP_API_URL || '';
-axios.defaults.baseURL = API_URL;
-
-// Log the API URL for debugging purposes
-console.log('API URL:', API_URL || 'Same origin');
+// API requests are same-origin by default.
+//
+// In production the Express server serves the built client, so relative /api
+// paths resolve directly. In development the CRA dev server proxies /api to
+// the API server (see setupProxy.js), which also avoids CORS entirely.
+//
+// REACT_APP_API_URL remains available for deployments that host the API on a
+// different origin, but it must be a URL the *browser* can resolve. Setting it
+// to a Docker-internal hostname breaks the app, and overriding it here also
+// bypasses the dev proxy.
+if (process.env.REACT_APP_API_URL) {
+  axios.defaults.baseURL = process.env.REACT_APP_API_URL;
+}
 
 function App() {
   const [tractateData, setTractateData] = useState({});

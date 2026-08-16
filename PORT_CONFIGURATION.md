@@ -24,11 +24,21 @@ In development mode, two separate servers run simultaneously:
    - Serves the API endpoints
    - The React app communicates with this server via proxy
 
-The proxy configuration in `client/package.json` allows the React app to make API calls to the development server without CORS issues:
+The proxy in `client/src/setupProxy.js` forwards `/api` from the React dev
+server to the API server, so browser code only ever uses relative paths and
+CORS never comes into play:
 
-```json
-"proxy": "http://localhost:3001"
+```js
+target: process.env.API_PROXY_TARGET || 'http://localhost:3001'
 ```
+
+`setupProxy.js` runs inside the dev server (Node), not the browser, so
+`API_PROXY_TARGET` may be a Docker service name such as `http://api-dev:3001`.
+
+Do **not** set `REACT_APP_API_URL` in development. It is read by browser code,
+so a Docker-internal hostname cannot be resolved, and setting it bypasses the
+proxy above. It exists only for deployments that genuinely host the API on a
+different public origin.
 
 ## Production Mode
 
@@ -58,7 +68,11 @@ docker compose --profile dev up --build
 ## Environment Variables
 
 - `PORT`: Sets the server port (3000 for production, 3001 for development)
-- `REACT_APP_API_URL`: In development, points to the API server (`http://localhost:3001`)
+- `API_PROXY_TARGET`: Where the CRA dev server proxies `/api` (default
+  `http://localhost:3001`; the docker dev profile sets `http://api-dev:3001`)
+- `HEBREW_FONT_PATH`: Optional override for the Hebrew PDF font
+- `REACT_APP_API_URL`: Only for deployments serving the API from a different
+  public origin. Leave unset in development.
 
 ## Running the Application
 

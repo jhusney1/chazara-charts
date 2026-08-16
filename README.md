@@ -116,46 +116,96 @@ Example:
 ```bash
 curl http://localhost:3000/api/tractates
 ```
+### Chart endpoints
 
-### POST /api/create-excel
+All six chart endpoints accept `POST` with a JSON body and stream back a file.
 
-Generates an Excel file based on the provided parameters.
+| Endpoint | Chart | Format |
+|---|---|---|
+| `POST /api/create-excel` | Gemara | `.xlsx` |
+| `POST /api/create-pdf` | Gemara | `.pdf` |
+| `POST /api/mishnayot-excel` | Mishnayot | `.xlsx` |
+| `POST /api/mishnayot-pdf` | Mishnayot | `.pdf` |
+| `POST /api/mishna-berura-excel` | Mishna Berura | `.xlsx` |
+| `POST /api/mishna-berura-pdf` | Mishna Berura | `.pdf` |
 
-Example using cURL:
+Example:
+
 ```bash
-curl -X POST \
-  http://localhost:3000/api/create-excel \
+curl -X POST http://localhost:3000/api/create-excel \
   -H 'Content-Type: application/json' \
   -d '{
     "tractates": ["Berachot"],
     "reviews": 3,
-    "pages": ["2a", "2b", "3a", "3b", "4a", "4b"],
-    "useHebrew": true
+    "pages": ["2a", "2b", "3a", "3b"],
+    "useHebrew": true,
+    "columnsPerPage": 2,
+    "includeDateColumn": true,
+    "startDate": "2026-08-16"
   }' \
   --output chazara-chart.xlsx
 ```
 
-### POST /api/create-pdf
+### Request parameters
 
-Generates a PDF file based on the provided parameters.
+Shared by every chart endpoint:
 
-Example using cURL:
+| Parameter | Type | Default | Notes |
+|---|---|---|---|
+| `pages` | string[] | **required** | Row labels in display order. Max 2000. |
+| `reviews` | number | `3` | Review columns. Clamped to 1–10. |
+| `columnsPerPage` | number | `1` | Side-by-side blocks. Clamped to 1–6. |
+| `includeDateColumn` | boolean | `true` | Adds a date column. |
+| `startDate` | string | today | `YYYY-MM-DD`, read as a local date. |
+| `useHebrew` | boolean | `false` | Hebrew numerals instead of digits. |
+
+Per chart type:
+
+| Parameter | Required by | Notes |
+|---|---|---|
+| `tractates` | Gemara | Array; one worksheet/section per tractate. |
+| `tractate` | Mishnayot | Tractate name. |
+| `seder` | Mishnayot | Optional label. |
+| `chaptersPerDay` | Mishnayot | `true` (default) labels rows "Chapter", else "Mishnah". |
+| `topic` | Mishna Berura | Title of the chart. |
+| `section` | Mishna Berura | Optional chelek label. |
+
+Numeric fields are coerced and clamped server-side, so out-of-range or
+string values are corrected rather than trusted. Invalid requests return
+`400` with an `{ "error": ... }` body.
+
+## Hebrew numerals
+
+`useHebrew` renders row labels as Hebrew numerals. Numbers whose last two
+digits are 15 or 16 use the ט"ו / ט"ז forms so no number spells a divine name.
+
+PDF output needs a Hebrew-capable font, since the built-in PDF fonts are
+WinAnsi encoded and cannot represent Hebrew. `assets/fonts/DejaVuSans.ttf`
+ships with the project (Bitstream Vera licence, see
+`assets/fonts/LICENSE.txt`). To use a different font, drop a `.ttf` into
+`assets/fonts/` or set `HEBREW_FONT_PATH` to its location. If no font is
+found the server logs a warning rather than emitting unreadable output.
+
+## Testing
+
 ```bash
-curl -X POST \
-  http://localhost:3000/api/create-pdf \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "tractates": ["Berachot"],
-    "reviews": 3,
-    "pages": ["2a", "2b", "3a", "3b", "4a", "4b"],
-    "useHebrew": true
-  }' \
-  --output chazara-chart.pdf
+npm test
 ```
 
-## Request Body Parameters
+Runs the suite with Node's built-in test runner (no extra dependencies).
+It covers all six endpoints end to end: column counts, pagination,
+date handling across timezones, Hebrew conversion, and input validation.
 
-- `tractates` (required): An array of tractate names to include in the file
-- `reviews` (optional, default: 3): The number of review columns to include
-- `pages` (optional): An array of specific daf pages to include (e.g., ["2a", "2b", "3a"]). If not provided, defaults to the first 10 pages.
-- `useHebrew` (optional, default: false): Whether to use Hebrew letters for daf numbers 
+## Project layout
+
+```
+server.js            Startup and graceful shutdown
+app.js               Express app and route definitions
+lib/normalize.js     Request coercion, validation, date helpers
+lib/excelChart.js    Shared Excel chart builder
+lib/pdfChart.js      Shared PDF chart builder (pagination, fonts)
+data/                Tractate/chart config and Hebrew numeral conversion
+assets/fonts/        Hebrew-capable font for PDF output
+test/                Test suite
+client/              React front end
+```
