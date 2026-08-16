@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import { useLanguage } from '../Header';
 import { 
   AdjustmentsHorizontalIcon,
   ChevronDoubleRightIcon,
   CalendarIcon
 } from '@heroicons/react/24/outline';
-import { Tooltip, FormatSelection, GenerateButton, downloadChart } from './BaseChartForm';
+import {
+  Tooltip,
+  FormatSelection,
+  GenerateButton,
+  downloadChart,
+  MAX_REVIEWS,
+  COLUMNS_PER_PAGE_OPTIONS
+} from './BaseChartForm';
 import translations from './data/translations';
 
 // Helper function to create a range of numbers
@@ -101,31 +109,33 @@ const GemaraChartForm = ({ tractateData }) => {
         pages.push(`${currentDaf}${currentAmud}`);
       }
       
-      // Prepare request data
+      // Prepare request data. Form controls yield strings, so numeric fields
+      // are coerced here as well as on the server.
       const requestData = {
         tractates: [formData.tractate],
-        reviews: formData.reviews,
+        reviews: Number(formData.reviews),
         pages: pages,
         useHebrew: formData.useHebrew,
-        columnsPerPage: formData.columnsPerPage,
+        columnsPerPage: Number(formData.columnsPerPage),
         includeDateColumn: formData.includeDateColumn,
         startDate: formData.startDate,
         dafPerDay: formData.dafPerDay
       };
-      
+
       // Make API request based on format
       const endpoint = formData.format === 'excel' ? '/api/create-excel' : '/api/create-pdf';
       await downloadChart(
-        endpoint, 
-        requestData, 
-        `${formData.tractate}-chazara-chart`, 
-        formData.format, 
+        endpoint,
+        requestData,
+        `${formData.tractate}-chazara-chart`,
+        formData.format,
         setLoading
       );
-      
     } catch (error) {
-      console.error('Error generating chart:', error);
-      alert('Error generating chart. Please try again.');
+      // downloadChart reports its own failures; this covers errors thrown
+      // while building the page list.
+      console.error('Error preparing chart request:', error);
+      toast.error('Could not build the chart. Please check your selections.');
       setLoading(false);
     }
   };
@@ -286,7 +296,7 @@ const GemaraChartForm = ({ tractateData }) => {
                   id="reviews"
                   name="reviews"
                   min="1"
-                  max="10"
+                  max={MAX_REVIEWS}
                   value={formData.reviews}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
@@ -342,12 +352,9 @@ const GemaraChartForm = ({ tractateData }) => {
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                   >
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                    <option value="6">6</option>
+                    {COLUMNS_PER_PAGE_OPTIONS.map(num => (
+                      <option key={num} value={num}>{num}</option>
+                    ))}
                   </select>
                 </div>
                 

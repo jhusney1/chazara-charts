@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import { useLanguage } from '../Header';
-import { 
+import {
   AdjustmentsHorizontalIcon,
   ChevronDoubleRightIcon,
-  CalendarIcon,
-  BookOpenIcon
+  CalendarIcon
 } from '@heroicons/react/24/outline';
-import { Tooltip, FormatSelection, GenerateButton, downloadChart } from './BaseChartForm';
+import {
+  Tooltip,
+  FormatSelection,
+  GenerateButton,
+  downloadChart,
+  MAX_REVIEWS,
+  COLUMNS_PER_PAGE_OPTIONS
+} from './BaseChartForm';
 import translations from './data/translations';
 import mishnayotData from './data/mishnayotData';
 
@@ -78,22 +85,25 @@ const MishnayotChartForm = () => {
     }
   }, [formData.seder]);
   
-  // Effect to update chapter and mishnah options when tractate changes
+  // Effect to update chapter and mishnah options when tractate changes.
+  // seder is a real dependency: the lookup below is keyed on it, and omitting
+  // it left this effect reading a stale seder.
   useEffect(() => {
-    if (formData.seder && formData.tractate && mishnayotData[formData.seder][formData.tractate]) {
-      const chapters = mishnayotData[formData.seder][formData.tractate];
-      setMaxChapters(chapters);
-      
-      // Update end chapter to the last chapter of the masechet when a new masechet is selected
-      setFormData(prev => ({
-        ...prev,
-        endChapter: chapters,
-        startChapter: 1,
-        startMishnah: 1,
-        endMishnah: 1
-      }));
-    }
-  }, [formData.tractate]);
+    const sederData = mishnayotData[formData.seder];
+    if (!sederData || !formData.tractate || !sederData[formData.tractate]) return;
+
+    const chapters = sederData[formData.tractate];
+    setMaxChapters(chapters);
+
+    // Reset the range to the whole masechet when a new one is selected
+    setFormData(prev => ({
+      ...prev,
+      endChapter: chapters,
+      startChapter: 1,
+      startMishnah: 1,
+      endMishnah: 1
+    }));
+  }, [formData.seder, formData.tractate]);
   
   // Effect to handle mishnah count changes based on chapter selection
   useEffect(() => {
@@ -161,32 +171,34 @@ const MishnayotChartForm = () => {
         }
       }
       
-      // Prepare request data
+      // Prepare request data. Form controls yield strings, so numeric fields
+      // are coerced here as well as on the server.
       const requestData = {
         seder: formData.seder,
         tractate: formData.tractate,
-        reviews: formData.reviews,
+        reviews: Number(formData.reviews),
         pages: pages,
         useHebrew: formData.useHebrew,
-        columnsPerPage: formData.columnsPerPage,
+        columnsPerPage: Number(formData.columnsPerPage),
         includeDateColumn: formData.includeDateColumn,
         startDate: formData.startDate,
         chaptersPerDay: formData.chaptersPerDay
       };
-      
+
       // Make API request based on format
       const endpoint = formData.format === 'excel' ? '/api/mishnayot-excel' : '/api/mishnayot-pdf';
       await downloadChart(
-        endpoint, 
-        requestData, 
-        `${formData.tractate}-mishnayot-chart`, 
-        formData.format, 
+        endpoint,
+        requestData,
+        `${formData.tractate}-mishnayot-chart`,
+        formData.format,
         setLoading
       );
-      
     } catch (error) {
-      console.error('Error generating chart:', error);
-      alert('Error generating chart. Please try again.');
+      // downloadChart reports its own failures; this covers errors thrown
+      // while building the page list.
+      console.error('Error preparing chart request:', error);
+      toast.error('Could not build the chart. Please check your selections.');
       setLoading(false);
     }
   };
@@ -376,7 +388,7 @@ const MishnayotChartForm = () => {
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
                 >
-                  {range(1, 10).map(num => (
+                  {range(1, MAX_REVIEWS).map(num => (
                     <option key={num} value={num}>{num}</option>
                   ))}
                 </select>
@@ -422,7 +434,7 @@ const MishnayotChartForm = () => {
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
                 >
-                  {[1, 2, 3, 4].map(num => (
+                  {COLUMNS_PER_PAGE_OPTIONS.map(num => (
                     <option key={num} value={num}>{num}</option>
                   ))}
                 </select>

@@ -1,10 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
+import { toast } from 'react-toastify';
 import { useLanguage } from '../Header';
-import { 
+import {
   DocumentTextIcon,
   DocumentArrowDownIcon
 } from '@heroicons/react/24/outline';
+
+// Shared form limits. These must match the bounds enforced in
+// data/chartConfig.js on the server, which clamps anything outside them.
+export const MAX_REVIEWS = 10;
+export const COLUMNS_PER_PAGE_OPTIONS = [1, 2, 3, 4, 5, 6];
 
 // Tooltip component for helping users understand form fields
 export const Tooltip = ({ text }) => {
@@ -137,107 +143,89 @@ export const GenerateButton = ({ loading, generatingText, generateText }) => {
   );
 };
 
-// Common chart download functionality
+/**
+ * Reads the server's error message out of a failed response.
+ *
+ * Because downloads use responseType 'blob', a JSON error body arrives as a
+ * Blob and has to be read back as text before it can be parsed.
+ */
+const extractErrorMessage = async (error) => {
+  if (error.response) {
+    const data = error.response.data;
+
+    if (data instanceof Blob) {
+      try {
+        const text = await data.text();
+        try {
+          const json = JSON.parse(text);
+          if (json.error) return json.error;
+        } catch {
+          if (text) return text.substring(0, 200);
+        }
+      } catch {
+        // Fall through to the generic message.
+      }
+    } else if (data && typeof data === 'object' && data.error) {
+      return data.error;
+    }
+
+    return `Server error (${error.response.status})`;
+  }
+
+  if (error.request) {
+    return 'No response from the server. Please check your connection and try again.';
+  }
+
+  return error.message || 'Something went wrong generating the chart.';
+};
+
+/**
+ * Requests a chart from the API and triggers a browser download.
+ *
+ * @returns {Promise<boolean>} whether the download succeeded
+ */
 export const downloadChart = async (endpoint, requestData, filename, format, setLoading) => {
+  let objectUrl;
+
   try {
-    console.log(`Sending request to ${endpoint} with format ${format}`);
-    console.log('Request data:', JSON.stringify(requestData, null, 2));
-    
     const response = await axios({
       url: endpoint,
       method: 'POST',
       data: requestData,
       responseType: 'blob',
-      timeout: 30000 // 30 second timeout
+      timeout: 30000
     });
-    
-    console.log('Response received:', response.status, response.statusText);
-    
-    if (response.status !== 200) {
-      throw new Error(`Server returned status code ${response.status}`);
+
+    // A JSON body here means the server reported an error with a 2xx-shaped
+    // response; surface it rather than downloading an error document.
+    const contentType = response.headers['content-type'] || '';
+    if (contentType.includes('application/json')) {
+      const json = JSON.parse(await response.data.text());
+      throw new Error(json.error || 'Unknown server error');
     }
-    
-    // Check for error response that might be JSON instead of a blob
-    const contentType = response.headers['content-type'];
-    if (contentType && contentType.includes('application/json')) {
-      // Convert blob to text to read the error
-      const errorText = await response.data.text();
-      const errorJson = JSON.parse(errorText);
-      throw new Error(errorJson.error || 'Unknown server error');
-    }
-    
-    // Make sure we have data
+
     if (!response.data || response.data.size === 0) {
-      throw new Error('Server returned empty response');
+      throw new Error('The server returned an empty file.');
     }
-    
-    // Create download link
-    const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
+
+    objectUrl = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
-    link.href = downloadUrl;
+    link.href = objectUrl;
     link.setAttribute('download', `${filename}.${format === 'excel' ? 'xlsx' : 'pdf'}`);
     document.body.appendChild(link);
     link.click();
     link.remove();
-    
+
+    toast.success('Chart generated successfully!');
     return true;
   } catch (error) {
     console.error('Error generating chart:', error);
-    
-    // Try to extract the detailed error message from the response if available
-    let errorMessage = 'Error generating chart. Please try again.';
-    
-    if (error.response) {
-      console.error('Error response:', error.response);
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      if (error.response.data) {
-        if (error.response.data instanceof Blob) {
-          try {
-            // Try to parse blob data as text
-            const text = await error.response.data.text();
-            if (text) {
-              try {
-                // Try to parse as JSON
-                const json = JSON.parse(text);
-                if (json.error) {
-                  errorMessage = `Error: ${json.error}`;
-                  if (json.details) {
-                    console.error('Error details:', json.details);
-                    errorMessage += ` Details: ${json.details}`;
-                  }
-                }
-              } catch (jsonError) {
-                // If not JSON, just show the text
-                errorMessage = `Server error: ${text.substring(0, 100)}...`;
-              }
-            }
-          } catch (blobError) {
-            console.error('Error reading blob:', blobError);
-          }
-        } else if (typeof error.response.data === 'object') {
-          // If it's already an object
-          errorMessage = `Error: ${error.response.data.error || 'Unknown server error'}`;
-        }
-      }
-    } else if (error.request) {
-      // The request was made but no response was received
-      errorMessage = 'Network error: No response received from server';
-    } else {
-      // Something happened in setting up the request that triggered an Error
-      errorMessage = `Request error: ${error.message}`;
-    }
-    
-    alert(errorMessage);
+    toast.error(await extractErrorMessage(error));
     return false;
   } finally {
+    // Release the blob so repeated downloads do not leak memory.
+    if (objectUrl) window.URL.revokeObjectURL(objectUrl);
     setLoading(false);
   }
 };
-
-export default {
-  Tooltip,
-  FormatSelection,
-  GenerateButton,
-  downloadChart
-}; 
+ 

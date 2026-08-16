@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import { useLanguage } from '../Header';
-import { 
+import {
   AdjustmentsHorizontalIcon,
   ChevronDoubleRightIcon,
-  CalendarIcon,
-  ClockIcon
+  CalendarIcon
 } from '@heroicons/react/24/outline';
-import { Tooltip, FormatSelection, GenerateButton, downloadChart } from './BaseChartForm';
+import {
+  Tooltip,
+  FormatSelection,
+  GenerateButton,
+  downloadChart,
+  MAX_REVIEWS,
+  COLUMNS_PER_PAGE_OPTIONS
+} from './BaseChartForm';
 import translations from './data/translations';
 import mishnaBeruraData from './data/mishnaBeruraData';
 
@@ -19,27 +26,33 @@ const range = (start, end) => {
   return result;
 };
 
-// Helper function to get all simanim in a chelek
-const getAllSimanimInChelek = (chelek) => {
-  let allSimanim = [];
-  Object.values(mishnaBeruraData[chelek]).forEach(topic => {
-    allSimanim = [...allSimanim, ...range(topic.start, topic.end)];
-  });
-  return allSimanim;
-};
-
 // Helper to get the topic for a specific siman
 const getTopicForSiman = (siman) => {
+  const target = parseInt(siman, 10);
+  if (Number.isNaN(target)) return null;
+
   for (const chelek in mishnaBeruraData) {
     for (const topic in mishnaBeruraData[chelek]) {
       const { start, end } = mishnaBeruraData[chelek][topic];
-      if (siman >= start && siman <= end) {
+      if (target >= start && target <= end) {
         return { topic, chelek };
       }
     }
   }
   return null;
 };
+
+// The full siman range covered by the data, used to bound custom selections.
+const SIMAN_BOUNDS = Object.values(mishnaBeruraData).reduce(
+  (bounds, chelek) => {
+    Object.values(chelek).forEach(({ start, end }) => {
+      bounds.min = Math.min(bounds.min, start);
+      bounds.max = Math.max(bounds.max, end);
+    });
+    return bounds;
+  },
+  { min: Infinity, max: 0 }
+);
 
 const MishnaBeruraChartForm = () => {
   const { language } = useLanguage();
@@ -59,7 +72,6 @@ const MishnaBeruraChartForm = () => {
   });
   
   const [loading, setLoading] = useState(false);
-  const [simanRange, setSimanRange] = useState({ start: 1, end: 1 });
   const [allTopics, setAllTopics] = useState([]);
   
   // Get translation based on current language
@@ -126,8 +138,7 @@ const MishnaBeruraChartForm = () => {
   useEffect(() => {
     if (formData.selectionMode === 'topic' && formData.chelek && formData.topic && mishnaBeruraData[formData.chelek][formData.topic]) {
       const { start, end } = mishnaBeruraData[formData.chelek][formData.topic];
-      setSimanRange({ start, end });
-      
+
       // Update siman ranges when a new topic is selected
       setFormData(prev => ({
         ...prev,
@@ -135,20 +146,19 @@ const MishnaBeruraChartForm = () => {
         endSiman: end
       }));
     }
-  }, [formData.topic, formData.selectionMode]);
-  
-  // Effect to validate custom siman range
+  }, [formData.topic, formData.chelek, formData.selectionMode]);
+
+  // Keep the custom siman range coherent: end must never precede start.
   useEffect(() => {
-    if (formData.selectionMode === 'custom') {
-      // Make sure startSiman <= endSiman
-      if (parseInt(formData.startSiman) > parseInt(formData.endSiman)) {
-        setFormData(prev => ({
-          ...prev,
-          endSiman: formData.startSiman
-        }));
-      }
-    }
-  }, [formData.startSiman, formData.selectionMode]);
+    if (formData.selectionMode !== 'custom') return;
+
+    setFormData(prev => {
+      const start = parseInt(prev.startSiman, 10);
+      const end = parseInt(prev.endSiman, 10);
+      if (Number.isNaN(start) || Number.isNaN(end) || start <= end) return prev;
+      return { ...prev, endSiman: prev.startSiman };
+    });
+  }, [formData.startSiman, formData.endSiman, formData.selectionMode]);
   
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -164,64 +174,66 @@ const MishnaBeruraChartForm = () => {
     setLoading(true);
     
     try {
-      // Generate array of pages based on selection
+      // All three modes resolve to a siman range; clamp it to the real bounds.
+      const startSiman = Math.max(
+        Math.min(parseInt(formData.startSiman, 10) || SIMAN_BOUNDS.min, SIMAN_BOUNDS.max),
+        SIMAN_BOUNDS.min
+      );
+      const endSiman = Math.max(
+        Math.min(parseInt(formData.endSiman, 10) || startSiman, SIMAN_BOUNDS.max),
+        startSiman
+      );
+
       const pages = [];
-      let startSiman, endSiman;
-      
-      if (formData.selectionMode === 'topic') {
-        // Topic mode - use the selected topic's siman range
-        startSiman = parseInt(formData.startSiman);
-        endSiman = parseInt(formData.endSiman);
-      } else if (formData.selectionMode === 'book') {
-        // Book mode - get all simanim in the selected chelek
-        startSiman = parseInt(formData.startSiman);
-        endSiman = parseInt(formData.endSiman);
-      } else {
-        // Custom mode - use the custom siman range
-        startSiman = parseInt(formData.startSiman);
-        endSiman = parseInt(formData.endSiman);
-      }
-      
-      // Include simanim in the selected range
       for (let siman = startSiman; siman <= endSiman; siman++) {
         pages.push(`${siman}`);
       }
-      
-      // Determine the topic name for display
+
+      // Determine the display title and section label for each mode. A custom
+      // range spans no single chelek, so it is labelled from the simanim it
+      // actually covers rather than left blank.
       let topicName = formData.topic;
+      let sectionName = formData.chelek;
+
       if (formData.selectionMode === 'book') {
         topicName = formData.chelek;
       } else if (formData.selectionMode === 'custom') {
         topicName = `Simanim ${startSiman}-${endSiman}`;
+        const from = getTopicForSiman(startSiman);
+        const to = getTopicForSiman(endSiman);
+        if (from && to) {
+          sectionName = from.chelek === to.chelek ? from.chelek : `${from.chelek} - ${to.chelek}`;
+        } else {
+          sectionName = 'Custom Range';
+        }
       }
-      
+
       // Prepare request data
       const requestData = {
-        section: formData.chelek,
+        section: sectionName,
         topic: topicName,
-        reviews: formData.reviews,
+        reviews: Number(formData.reviews),
         pages: pages,
         useHebrew: formData.useHebrew,
-        columnsPerPage: formData.columnsPerPage,
+        columnsPerPage: Number(formData.columnsPerPage),
         includeDateColumn: formData.includeDateColumn,
         startDate: formData.startDate
       };
-      
-      console.log('Sending request data:', JSON.stringify(requestData, null, 2));
-      
+
       // Make API request based on format
       const endpoint = formData.format === 'excel' ? '/api/mishna-berura-excel' : '/api/mishna-berura-pdf';
       await downloadChart(
-        endpoint, 
-        requestData, 
-        `${topicName.replace(/\s+/g, '-').toLowerCase()}-mishna-berura-chart`, 
-        formData.format, 
+        endpoint,
+        requestData,
+        `${topicName.replace(/\s+/g, '-').toLowerCase()}-mishna-berura-chart`,
+        formData.format,
         setLoading
       );
-      
     } catch (error) {
-      console.error('Error generating chart:', error);
-      alert('Error generating chart. Please try again.');
+      // downloadChart reports its own failures; this covers errors thrown
+      // while building the siman list.
+      console.error('Error preparing chart request:', error);
+      toast.error('Could not build the chart. Please check your selections.');
       setLoading(false);
     }
   };
@@ -344,8 +356,8 @@ const MishnaBeruraChartForm = () => {
                       type="number"
                       id="startSiman"
                       name="startSiman"
-                      min="1"
-                      max="697"
+                      min={SIMAN_BOUNDS.min}
+                      max={SIMAN_BOUNDS.max}
                       value={formData.startSiman}
                       onChange={handleChange}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
@@ -369,7 +381,7 @@ const MishnaBeruraChartForm = () => {
                       id="endSiman"
                       name="endSiman"
                       min={formData.startSiman}
-                      max="697"
+                      max={SIMAN_BOUNDS.max}
                       value={formData.endSiman}
                       onChange={handleChange}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
@@ -398,7 +410,7 @@ const MishnaBeruraChartForm = () => {
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                 >
-                  {range(1, 10).map(num => (
+                  {range(1, MAX_REVIEWS).map(num => (
                     <option key={num} value={num}>{num}</option>
                   ))}
                 </select>
@@ -444,7 +456,7 @@ const MishnaBeruraChartForm = () => {
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                 >
-                  {[1, 2, 3, 4].map(num => (
+                  {COLUMNS_PER_PAGE_OPTIONS.map(num => (
                     <option key={num} value={num}>{num}</option>
                   ))}
                 </select>
