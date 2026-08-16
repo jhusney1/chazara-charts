@@ -29,60 +29,92 @@ const hebrewNumerals = [
 ];
 
 /**
- * Special case numbers that need custom handling
- * to avoid spelling parts of God's name
+ * The last two digits 15 and 16 are written tet-vav and tet-zayin rather than
+ * yud-hey and yud-vav, which would spell part of a divine name. This is a rule
+ * about the remainder, not about specific numbers: it applies equally to 15,
+ * 115, 215 ... 615, so it must be derived rather than enumerated.
  */
-const specialHebrewNumbers = {
-  15: 'טו', // Tet-Vav (not Yud-Hey)
-  16: 'טז', // Tet-Zayin (not Yud-Vav)
-  115: 'קטו', // Kuf-Tet-Vav (not Kuf-Yud-Hey)
-  116: 'קטז', // Kuf-Tet-Zayin (not Kuf-Yud-Vav)
-  // Add more special cases as needed
+const remainderOverrides = {
+  15: 'טו',
+  16: 'טז'
 };
 
 /**
- * Converts a numeric input with optional amud marker to Hebrew representation
- * 
- * @param {string} input - Input string like "23" or "23a" or "23b"
- * @returns {string} Hebrew representation with appropriate amud notation
+ * Converts a non-negative integer to its Hebrew numeral representation.
+ *
+ * @param {number} num
+ * @returns {string} Hebrew numerals, e.g. 215 -> רטו
  */
-function convertToHebrew(input) {
-  // Extract the number and amud part (if present)
-  const match = input.match(/(\d+)([ab])?/);
-  if (!match) return input;
-  
-  const num = parseInt(match[1]);
-  const amud = match[2]; // This might be undefined if no amud is specified
-  
-  // Check for special case numbers
-  if (specialHebrewNumbers[num]) {
-    const hebrewNumber = specialHebrewNumbers[num];
-    return amud ? (amud === 'a' ? hebrewNumber + '.' : hebrewNumber + ':') : hebrewNumber;
-  }
-  
-  let hebrewNum = '';
-  let remaining = num;
-  
-  // Convert the number to Hebrew letters
+function numberToHebrew(num) {
+  if (!Number.isFinite(num) || num <= 0) return '';
+
+  let result = '';
+  let remaining = Math.floor(num);
+
+  // Hundreds are built greedily (500 -> תק, 900 -> תתק).
   for (const { value, letter } of hebrewNumerals) {
+    if (value < 100) break;
     while (remaining >= value) {
-      hebrewNum += letter;
+      result += letter;
       remaining -= value;
     }
   }
-  
-  // Add the amud notation using traditional formatting
-  if (amud) {
-    // For amud alef (a): add a period to the left of the number
-    // For amud bet (b): add a colon to the left of the number
-    return amud === 'a' ? hebrewNum + '.' : hebrewNum + ':';
+
+  // Tens and units, with the 15/16 override applied to the remainder.
+  if (remainderOverrides[remaining]) {
+    return result + remainderOverrides[remaining];
   }
-  
-  return hebrewNum;
+
+  for (const { value, letter } of hebrewNumerals) {
+    if (value >= 100) continue;
+    while (remaining >= value) {
+      result += letter;
+      remaining -= value;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Converts a chart item label to its Hebrew representation.
+ *
+ * Handles the label formats the chart forms produce:
+ *   "23"    -> כג          (daf / chapter / siman)
+ *   "23a"   -> כג.         (amud alef)
+ *   "23b"   -> כג:         (amud bet)
+ *   "3:7"   -> ג:ז         (chapter:mishnah)
+ *
+ * Every numeric run is converted, so compound labels keep all their parts.
+ * Anything it cannot interpret is returned unchanged.
+ *
+ * @param {string|number} input
+ * @returns {string|*} Hebrew representation, or the original value
+ */
+function convertToHebrew(input) {
+  if (input === null || input === undefined) return input;
+
+  const text = String(input);
+  if (!/\d/.test(text)) return input;
+
+  // Amud markers are a suffix on the final number, not a number themselves.
+  const amudMatch = text.match(/^(.*?)([ab])$/);
+  const body = amudMatch ? amudMatch[1] : text;
+  const amud = amudMatch ? amudMatch[2] : null;
+
+  const converted = body.replace(/\d+/g, (digits) => {
+    const hebrew = numberToHebrew(parseInt(digits, 10));
+    return hebrew || digits;
+  });
+
+  if (!amud) return converted;
+
+  // Amud alef takes a period, amud bet a colon (rendered to the left in RTL).
+  return amud === 'a' ? `${converted}.` : `${converted}:`;
 }
 
 module.exports = {
   convertToHebrew,
-  hebrewNumerals,
-  specialHebrewNumbers
-}; 
+  numberToHebrew,
+  hebrewNumerals
+};
