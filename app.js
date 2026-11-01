@@ -76,6 +76,10 @@ function sendPdf(res, filename, build) {
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
+  // The document is fully laid out before anything is streamed, so the
+  // totals are known here. The client's live preview reads them.
+  if (doc._pageCount) res.setHeader('X-Chart-Pages', String(doc._pageCount));
+  if (doc._rowCount) res.setHeader('X-Chart-Rows', String(doc._rowCount));
 
   doc.on('error', (error) => {
     console.error('PDF stream error:', error);

@@ -20,6 +20,15 @@ const translations = {
     chazaraDays: 'Chazara days (no new learning)',
     weekdays: { sun: 'Sun', mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Shabbat' },
     customization: 'Chart Customization',
+    preview: 'Print Preview',
+    previewHint: 'Updates automatically as you change the settings. This is exactly what the PDF will look like.',
+    previewExcelNote: 'Showing the printable layout. The Excel file contains the same rows and columns.',
+    previewPages: 'pages',
+    previewRows: 'rows',
+    previewLoading: 'Updating preview...',
+    previewError: 'Preview unavailable',
+    previewOpen: 'Open in new tab',
+    previewEmpty: 'Complete the selection above to see a preview.',
     mainSettings: 'Main Settings',
     
     // Gemara chart specific
@@ -88,6 +97,15 @@ const translations = {
     chazaraDays: 'ימי חזרה (ללא לימוד חדש)',
     weekdays: { sun: 'א׳', mon: 'ב׳', tue: 'ג׳', wed: 'ד׳', thu: 'ה׳', fri: 'ו׳', sat: 'שבת' },
     customization: 'התאמה אישית של הטבלה',
+    preview: 'תצוגה מקדימה להדפסה',
+    previewHint: 'מתעדכן אוטומטית עם כל שינוי בהגדרות. כך בדיוק ייראה קובץ ה-PDF.',
+    previewExcelNote: 'מוצגת הפריסה להדפסה. קובץ האקסל מכיל את אותן שורות ועמודות.',
+    previewPages: 'עמודים',
+    previewRows: 'שורות',
+    previewLoading: 'מעדכן תצוגה מקדימה...',
+    previewError: 'התצוגה המקדימה אינה זמינה',
+    previewOpen: 'פתח בכרטיסייה חדשה',
+    previewEmpty: 'השלם את הבחירה למעלה כדי לראות תצוגה מקדימה.',
     mainSettings: 'הגדרות ראשיות',
     
     // Gemara chart specific
