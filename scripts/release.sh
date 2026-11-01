@@ -35,7 +35,8 @@ git fetch -q --all
 git checkout -q master 2>/dev/null || true
 git reset -q --hard "$SHA"
 export GIT_SHA="$SHA"
-docker compose up --build -d --remove-orphans
+# "app" is behind a compose profile; naming it activates that profile.
+docker compose up --build -d --remove-orphans app
 docker image prune -f >/dev/null
 docker compose ps
 REMOTE
