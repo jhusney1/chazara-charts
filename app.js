@@ -13,9 +13,12 @@ const {
   ValidationError,
   requireString,
   normalizeChartRequest,
-  safeFilename
+  safeFilename,
+  toBool
 } = require('./lib/normalize');
 const { buildChartWorkbook } = require('./lib/excelChart');
+const { withPerakim } = require('./lib/perakim');
+const perakimData = require('./data/perakimData');
 const { createChartDocument, renderChart, finalizeDocument } = require('./lib/pdfChart');
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -37,6 +40,12 @@ if (isProduction) {
 
 app.get('/api/tractates', (req, res) => {
   res.json(tractateData);
+});
+
+// Perek boundaries per tractate, used by the client to group the daf
+// dropdowns. See data/perakimData.js.
+app.get('/api/perakim', (req, res) => {
+  res.json(perakimData);
 });
 
 app.get('/api/health', (req, res) => {
@@ -97,16 +106,27 @@ function gemaraChartOptions(body) {
     throw new ValidationError('Please provide at least one tractate');
   }
 
-  return { settings, tractates };
+  // Opt-in so existing API callers get exactly the rows they sent.
+  const includePerakim = toBool(body.includePerakim, false);
+
+  /**
+   * Row items for one tractate: the requested pages, with a perek heading
+   * before the first daf of each chapter when asked for.
+   */
+  const itemsFor = (tractate) =>
+    includePerakim ? withPerakim(settings.items, tractate, settings.useHebrew) : settings.items;
+
+  return { settings, tractates, itemsFor };
 }
 
 app.post(
   '/api/create-excel',
   asyncRoute(async (req, res) => {
-    const { settings, tractates } = gemaraChartOptions(req.body);
+    const { settings, tractates, itemsFor } = gemaraChartOptions(req.body);
 
     const workbook = buildChartWorkbook({
       ...settings,
+      items: itemsFor(tractates[0]),
       sheetName: tractates[0],
       itemHeader: 'Daf',
       theme: chartThemes.gemara.excel
@@ -119,7 +139,7 @@ app.post(
 app.post(
   '/api/create-pdf',
   asyncRoute(async (req, res) => {
-    const { settings, tractates } = gemaraChartOptions(req.body);
+    const { settings, tractates, itemsFor } = gemaraChartOptions(req.body);
 
     sendPdf(res, `${safeFilename(tractates[0])}-chazara-chart`, () => {
       const doc = createChartDocument({
@@ -130,6 +150,7 @@ app.post(
       tractates.forEach((tractate, index) => {
         renderChart(doc, {
           ...settings,
+          items: itemsFor(tractate),
           title: `${tractate} - Chazara Chart`,
           itemHeader: 'Daf',
           checkboxes: true,

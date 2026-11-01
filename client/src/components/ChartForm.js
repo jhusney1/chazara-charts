@@ -36,7 +36,7 @@ const labels = {
   }
 };
 
-const ChartForm = ({ tractateData }) => {
+const ChartForm = ({ tractateData, perakimData = {} }) => {
   const { language } = useLanguage();
   const [chartType, setChartType] = useState(CHART_TYPES.GEMARA);
 
@@ -61,7 +61,7 @@ const ChartForm = ({ tractateData }) => {
         return <MishnaBeruraChartForm />;
       case CHART_TYPES.GEMARA:
       default:
-        return <GemaraChartForm tractateData={tractateData} />;
+        return <GemaraChartForm tractateData={tractateData} perakimData={perakimData} />;
     }
   };
 

@@ -22,6 +22,7 @@ if (process.env.REACT_APP_API_URL) {
 
 function App() {
   const [tractateData, setTractateData] = useState({});
+  const [perakimData, setPerakimData] = useState({});
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState('en');
 
@@ -33,8 +34,14 @@ function App() {
     // Fetch tractate data from the API
     const fetchTractateData = async () => {
       try {
-        const response = await axios.get('/api/tractates');
-        setTractateData(response.data);
+        const [tractates, perakim] = await Promise.all([
+          axios.get('/api/tractates'),
+          // Perek boundaries only decorate the daf dropdowns; the form works
+          // without them, so a failure here is not fatal.
+          axios.get('/api/perakim').catch(() => ({ data: {} }))
+        ]);
+        setTractateData(tractates.data);
+        setPerakimData(perakim.data || {});
         setLoading(false);
       } catch (error) {
         console.error('Error fetching tractate data:', error);
@@ -89,7 +96,7 @@ function App() {
                 </div>
               </div>
             ) : (
-              <ChartForm tractateData={tractateData} />
+              <ChartForm tractateData={tractateData} perakimData={perakimData} />
             )}
           </div>
         </main>

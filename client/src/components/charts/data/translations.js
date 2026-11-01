@@ -28,6 +28,8 @@ const translations = {
     dafPerDay: 'Learning Mode',
     dafMode: 'Daf Mode',
     amudMode: 'Amud Mode',
+    includePerakim: 'Show perakim',
+    perek: 'Perek',
     footer: 'This will generate a chart for the selected masechet with columns for the date learned and each review session.',
     
     // Mishnayot chart specific
@@ -60,6 +62,7 @@ const translations = {
       includeDateColumn: 'Include a column for marking the date when each item was learned',
       startDate: 'If date column is included, start filling dates from this day',
       dafPerDay: 'Switch between Daf mode (full page) and Amud mode (half page)',
+      includePerakim: 'Add a heading row before the first daf of each perek. It is a label, not a daf: no date and no review boxes.',
       chaptersPerDay: 'Switch between Chapter mode (full chapter) and Mishnah mode (individual mishnah)'
     }
   },
@@ -88,6 +91,8 @@ const translations = {
     dafPerDay: 'מצב לימוד',
     dafMode: 'מצב דף',
     amudMode: 'מצב עמוד',
+    includePerakim: 'הצג פרקים',
+    perek: 'פרק',
     footer: 'זה ייצור טבלה עבור המסכת שנבחרה עם עמודות לתאריך הלימוד ולכל חזרה.',
     
     // Mishnayot chart specific
@@ -120,6 +125,7 @@ const translations = {
       includeDateColumn: 'כלול עמודה לסימון התאריך שבו נלמד כל פריט',
       startDate: 'אם עמודת תאריך נכללת, התחל למלא תאריכים מיום זה',
       dafPerDay: 'בחר בין מצב דף (עמוד שלם) ומצב עמוד (חצי עמוד)',
+      includePerakim: 'הוסף שורת כותרת לפני הדף הראשון של כל פרק. זו כותרת בלבד, לא דף: בלי תאריך ובלי תיבות חזרה.',
       chaptersPerDay: 'בחר בין מצב פרק (פרק שלם) ומצב משנה (משנה בודדת)'
     }
   }
