@@ -16,6 +16,7 @@ import {
   COLUMNS_PER_PAGE_OPTIONS
 } from './BaseChartForm';
 import translations from './data/translations';
+import ChartPreview from './ChartPreview';
 import mishnaBeruraData from './data/mishnaBeruraData';
 
 // Helper function to create a range of numbers
@@ -171,64 +172,91 @@ const MishnaBeruraChartForm = () => {
     }));
   };
   
+  // Builds the API request for the current selection. Shared by the download
+  // and the live preview; returns null while the form is incomplete.
+  const buildRequest = () => {
+    if (formData.selectionMode === 'topic' && !formData.topic) return null;
+    if (formData.selectionMode === 'book' && !formData.chelek) return null;
+
+    // All three modes resolve to a siman range; clamp it to the real bounds.
+    const startSiman = Math.max(
+      Math.min(parseInt(formData.startSiman, 10) || SIMAN_BOUNDS.min, SIMAN_BOUNDS.max),
+      SIMAN_BOUNDS.min
+    );
+    const endSiman = Math.max(
+      Math.min(parseInt(formData.endSiman, 10) || startSiman, SIMAN_BOUNDS.max),
+      startSiman
+    );
+
+    const pages = [];
+    for (let siman = startSiman; siman <= endSiman; siman++) {
+      pages.push(`${siman}`);
+    }
+
+    // Determine the display title and section label for each mode. A custom
+    // range spans no single chelek, so it is labelled from the simanim it
+    // actually covers rather than left blank.
+    let topicName = formData.topic;
+    let sectionName = formData.chelek;
+
+    if (formData.selectionMode === 'book') {
+      topicName = formData.chelek;
+    } else if (formData.selectionMode === 'custom') {
+      topicName = `Simanim ${startSiman}-${endSiman}`;
+      const from = getTopicForSiman(startSiman);
+      const to = getTopicForSiman(endSiman);
+      if (from && to) {
+        sectionName = from.chelek === to.chelek ? from.chelek : `${from.chelek} - ${to.chelek}`;
+      } else {
+        sectionName = 'Custom Range';
+      }
+    }
+
+    // Prepare request data
+    const requestData = {
+      section: sectionName,
+      topic: topicName,
+      reviews: Number(formData.reviews),
+      pages: pages,
+      useHebrew: formData.useHebrew,
+      columnsPerPage: Number(formData.columnsPerPage),
+      includeDateColumn: formData.includeDateColumn,
+      startDate: formData.startDate,
+      skipDays: formData.skipDays
+    };
+
+    return {
+      requestData,
+      filename: `${topicName.replace(/\s+/g, '-').toLowerCase()}-mishna-berura-chart`,
+      excelEndpoint: '/api/mishna-berura-excel',
+      pdfEndpoint: '/api/mishna-berura-pdf'
+    };
+  };
+
+  // The preview re-renders from the same request the download will send.
+  let previewRequest = null;
+  try {
+    previewRequest = buildRequest();
+  } catch {
+    previewRequest = null;
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
+
     try {
-      // All three modes resolve to a siman range; clamp it to the real bounds.
-      const startSiman = Math.max(
-        Math.min(parseInt(formData.startSiman, 10) || SIMAN_BOUNDS.min, SIMAN_BOUNDS.max),
-        SIMAN_BOUNDS.min
-      );
-      const endSiman = Math.max(
-        Math.min(parseInt(formData.endSiman, 10) || startSiman, SIMAN_BOUNDS.max),
-        startSiman
-      );
-
-      const pages = [];
-      for (let siman = startSiman; siman <= endSiman; siman++) {
-        pages.push(`${siman}`);
+      const request = buildRequest();
+      if (!request) {
+        toast.error('Please complete the selection first.');
+        setLoading(false);
+        return;
       }
 
-      // Determine the display title and section label for each mode. A custom
-      // range spans no single chelek, so it is labelled from the simanim it
-      // actually covers rather than left blank.
-      let topicName = formData.topic;
-      let sectionName = formData.chelek;
-
-      if (formData.selectionMode === 'book') {
-        topicName = formData.chelek;
-      } else if (formData.selectionMode === 'custom') {
-        topicName = `Simanim ${startSiman}-${endSiman}`;
-        const from = getTopicForSiman(startSiman);
-        const to = getTopicForSiman(endSiman);
-        if (from && to) {
-          sectionName = from.chelek === to.chelek ? from.chelek : `${from.chelek} - ${to.chelek}`;
-        } else {
-          sectionName = 'Custom Range';
-        }
-      }
-
-      // Prepare request data
-      const requestData = {
-        section: sectionName,
-        topic: topicName,
-        reviews: Number(formData.reviews),
-        pages: pages,
-        useHebrew: formData.useHebrew,
-        columnsPerPage: Number(formData.columnsPerPage),
-        includeDateColumn: formData.includeDateColumn,
-        startDate: formData.startDate,
-        skipDays: formData.skipDays
-      };
-
-      // Make API request based on format
-      const endpoint = formData.format === 'excel' ? '/api/mishna-berura-excel' : '/api/mishna-berura-pdf';
       await downloadChart(
-        endpoint,
-        requestData,
-        `${topicName.replace(/\s+/g, '-').toLowerCase()}-mishna-berura-chart`,
+        formData.format === 'excel' ? request.excelEndpoint : request.pdfEndpoint,
+        request.requestData,
+        request.filename,
         formData.format,
         setLoading
       );
@@ -536,6 +564,8 @@ const MishnaBeruraChartForm = () => {
           />
           
           {/* Generate Button */}
+          <ChartPreview request={previewRequest} format={formData.format} labels={t} />
+
           <GenerateButton 
             loading={loading} 
             generatingText={t.generating} 

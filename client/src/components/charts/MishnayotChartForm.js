@@ -16,6 +16,7 @@ import {
   COLUMNS_PER_PAGE_OPTIONS
 } from './BaseChartForm';
 import translations from './data/translations';
+import ChartPreview from './ChartPreview';
 import mishnayotData from './data/mishnayotData';
 
 // Helper function to create a range of numbers
@@ -134,66 +135,92 @@ const MishnayotChartForm = () => {
     }));
   };
   
+  // Builds the API request for the current selection. Shared by the download
+  // and the live preview; returns null while the form is incomplete.
+  const buildRequest = () => {
+    if (!formData.seder || !formData.tractate) return null;
+
+    // Generate array of pages based on selection
+    const pages = [];
+    let currentChapter = parseInt(formData.startChapter);
+    let currentMishnah = formData.chaptersPerDay ? 1 : parseInt(formData.startMishnah);
+    const endChapter = parseInt(formData.endChapter);
+    const endMishnah = formData.chaptersPerDay ? 
+      getMishnahCount(formData.seder, formData.tractate, endChapter) : 
+      parseInt(formData.endMishnah);
+    
+    if (formData.chaptersPerDay) {
+      // Chapter mode - include entire chapters
+      for (let chapter = currentChapter; chapter <= endChapter; chapter++) {
+        pages.push(`${chapter}`);
+      }
+    } else {
+      // Mishnah mode - include individual mishnayot
+      while (
+        currentChapter < endChapter || 
+        (currentChapter === endChapter && currentMishnah <= endMishnah)
+      ) {
+        pages.push(`${currentChapter}:${currentMishnah}`);
+        
+        // Move to next mishnah
+        currentMishnah++;
+        
+        // Move to next chapter when we reach the end of the current chapter
+        const currentChapterMishnahCount = getMishnahCount(formData.seder, formData.tractate, currentChapter);
+        if (currentMishnah > currentChapterMishnahCount) {
+          currentMishnah = 1;
+          currentChapter++;
+        }
+      }
+    }
+    
+    // Prepare request data. Form controls yield strings, so numeric fields
+    // are coerced here as well as on the server.
+    const requestData = {
+      seder: formData.seder,
+      tractate: formData.tractate,
+      reviews: Number(formData.reviews),
+      pages: pages,
+      useHebrew: formData.useHebrew,
+      columnsPerPage: Number(formData.columnsPerPage),
+      includeDateColumn: formData.includeDateColumn,
+      startDate: formData.startDate,
+      skipDays: formData.skipDays,
+      chaptersPerDay: formData.chaptersPerDay
+    };
+
+    return {
+      requestData,
+      filename: `${formData.tractate}-mishnayot-chart`,
+      excelEndpoint: '/api/mishnayot-excel',
+      pdfEndpoint: '/api/mishnayot-pdf'
+    };
+  };
+
+  // The preview re-renders from the same request the download will send.
+  let previewRequest = null;
+  try {
+    previewRequest = buildRequest();
+  } catch {
+    previewRequest = null;
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
-    try {
-      // Generate array of pages based on selection
-      const pages = [];
-      let currentChapter = parseInt(formData.startChapter);
-      let currentMishnah = formData.chaptersPerDay ? 1 : parseInt(formData.startMishnah);
-      const endChapter = parseInt(formData.endChapter);
-      const endMishnah = formData.chaptersPerDay ? 
-        getMishnahCount(formData.seder, formData.tractate, endChapter) : 
-        parseInt(formData.endMishnah);
-      
-      if (formData.chaptersPerDay) {
-        // Chapter mode - include entire chapters
-        for (let chapter = currentChapter; chapter <= endChapter; chapter++) {
-          pages.push(`${chapter}`);
-        }
-      } else {
-        // Mishnah mode - include individual mishnayot
-        while (
-          currentChapter < endChapter || 
-          (currentChapter === endChapter && currentMishnah <= endMishnah)
-        ) {
-          pages.push(`${currentChapter}:${currentMishnah}`);
-          
-          // Move to next mishnah
-          currentMishnah++;
-          
-          // Move to next chapter when we reach the end of the current chapter
-          const currentChapterMishnahCount = getMishnahCount(formData.seder, formData.tractate, currentChapter);
-          if (currentMishnah > currentChapterMishnahCount) {
-            currentMishnah = 1;
-            currentChapter++;
-          }
-        }
-      }
-      
-      // Prepare request data. Form controls yield strings, so numeric fields
-      // are coerced here as well as on the server.
-      const requestData = {
-        seder: formData.seder,
-        tractate: formData.tractate,
-        reviews: Number(formData.reviews),
-        pages: pages,
-        useHebrew: formData.useHebrew,
-        columnsPerPage: Number(formData.columnsPerPage),
-        includeDateColumn: formData.includeDateColumn,
-        startDate: formData.startDate,
-        skipDays: formData.skipDays,
-        chaptersPerDay: formData.chaptersPerDay
-      };
 
-      // Make API request based on format
-      const endpoint = formData.format === 'excel' ? '/api/mishnayot-excel' : '/api/mishnayot-pdf';
+    try {
+      const request = buildRequest();
+      if (!request) {
+        toast.error('Please complete the selection first.');
+        setLoading(false);
+        return;
+      }
+
       await downloadChart(
-        endpoint,
-        requestData,
-        `${formData.tractate}-mishnayot-chart`,
+        formData.format === 'excel' ? request.excelEndpoint : request.pdfEndpoint,
+        request.requestData,
+        request.filename,
         formData.format,
         setLoading
       );
@@ -514,6 +541,8 @@ const MishnayotChartForm = () => {
           />
           
           {/* Generate Button */}
+          <ChartPreview request={previewRequest} format={formData.format} labels={t} />
+
           <GenerateButton 
             loading={loading} 
             generatingText={t.generating} 

@@ -16,6 +16,7 @@ import {
   COLUMNS_PER_PAGE_OPTIONS
 } from './BaseChartForm';
 import translations from './data/translations';
+import ChartPreview from './ChartPreview';
 import MasechetCombobox from './MasechetCombobox';
 
 // Small Hebrew numeral for perek numbers in the dropdown group labels
@@ -112,66 +113,92 @@ const GemaraChartForm = ({ tractateData, perakimData = {} }) => {
     }));
   };
   
+  // Builds the API request for the current selection. Shared by the download
+  // and the live preview; returns null while the form is incomplete.
+  const buildRequest = () => {
+    if (!formData.tractate) return null;
+
+    // Generate array of pages based on selection
+    const pages = [];
+    let currentDaf = parseInt(formData.startDaf);
+    let currentAmud = formData.startAmud;
+    const endDaf = parseInt(formData.endDaf);
+    const endAmud = formData.endAmud;
+    
+    while (
+      currentDaf < endDaf || 
+      (currentDaf === endDaf && (currentAmud === 'a' || endAmud === 'b'))
+    ) {
+      if (formData.dafPerDay) {
+        // For dafPerDay, we group both amudim together
+        pages.push(`${currentDaf}`);
+        currentDaf++;
+      } else {
+        // Add each amud separately
+        pages.push(`${currentDaf}${currentAmud}`);
+        
+        // Move to next amud
+        if (currentAmud === 'a') {
+          currentAmud = 'b';
+        } else {
+          currentAmud = 'a';
+          currentDaf++;
+        }
+      }
+    }
+    
+    // Add the final page if needed
+    if (!formData.dafPerDay && currentDaf === endDaf && currentAmud === endAmud) {
+      pages.push(`${currentDaf}${currentAmud}`);
+    }
+    
+    // Prepare request data. Form controls yield strings, so numeric fields
+    // are coerced here as well as on the server.
+    const requestData = {
+      tractates: [formData.tractate],
+      reviews: Number(formData.reviews),
+      pages: pages,
+      useHebrew: formData.useHebrew,
+      columnsPerPage: Number(formData.columnsPerPage),
+      includeDateColumn: formData.includeDateColumn,
+      startDate: formData.startDate,
+      skipDays: formData.skipDays,
+      dafPerDay: formData.dafPerDay,
+      includePerakim: formData.includePerakim
+    };
+
+    return {
+      requestData,
+      filename: `${formData.tractate}-chazara-chart`,
+      excelEndpoint: '/api/create-excel',
+      pdfEndpoint: '/api/create-pdf'
+    };
+  };
+
+  // The preview re-renders from the same request the download will send.
+  let previewRequest = null;
+  try {
+    previewRequest = buildRequest();
+  } catch {
+    previewRequest = null;
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
-    try {
-      // Generate array of pages based on selection
-      const pages = [];
-      let currentDaf = parseInt(formData.startDaf);
-      let currentAmud = formData.startAmud;
-      const endDaf = parseInt(formData.endDaf);
-      const endAmud = formData.endAmud;
-      
-      while (
-        currentDaf < endDaf || 
-        (currentDaf === endDaf && (currentAmud === 'a' || endAmud === 'b'))
-      ) {
-        if (formData.dafPerDay) {
-          // For dafPerDay, we group both amudim together
-          pages.push(`${currentDaf}`);
-          currentDaf++;
-        } else {
-          // Add each amud separately
-          pages.push(`${currentDaf}${currentAmud}`);
-          
-          // Move to next amud
-          if (currentAmud === 'a') {
-            currentAmud = 'b';
-          } else {
-            currentAmud = 'a';
-            currentDaf++;
-          }
-        }
-      }
-      
-      // Add the final page if needed
-      if (!formData.dafPerDay && currentDaf === endDaf && currentAmud === endAmud) {
-        pages.push(`${currentDaf}${currentAmud}`);
-      }
-      
-      // Prepare request data. Form controls yield strings, so numeric fields
-      // are coerced here as well as on the server.
-      const requestData = {
-        tractates: [formData.tractate],
-        reviews: Number(formData.reviews),
-        pages: pages,
-        useHebrew: formData.useHebrew,
-        columnsPerPage: Number(formData.columnsPerPage),
-        includeDateColumn: formData.includeDateColumn,
-        startDate: formData.startDate,
-        skipDays: formData.skipDays,
-        dafPerDay: formData.dafPerDay,
-        includePerakim: formData.includePerakim
-      };
 
-      // Make API request based on format
-      const endpoint = formData.format === 'excel' ? '/api/create-excel' : '/api/create-pdf';
+    try {
+      const request = buildRequest();
+      if (!request) {
+        toast.error('Please complete the selection first.');
+        setLoading(false);
+        return;
+      }
+
       await downloadChart(
-        endpoint,
-        requestData,
-        `${formData.tractate}-chazara-chart`,
+        formData.format === 'excel' ? request.excelEndpoint : request.pdfEndpoint,
+        request.requestData,
+        request.filename,
         formData.format,
         setLoading
       );
@@ -458,6 +485,8 @@ const GemaraChartForm = ({ tractateData, perakimData = {} }) => {
           </div>
         </div>
         
+        <ChartPreview request={previewRequest} format={formData.format} labels={t} />
+
         <GenerateButton 
           loading={loading} 
           generatingText={t.generating} 
