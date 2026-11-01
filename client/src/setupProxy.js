@@ -11,9 +11,11 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
  * the docker-compose dev profile sets it to http://api-dev:3001.
  */
 module.exports = function (app) {
+  // http-proxy-middleware v3 does not re-add a mount prefix that Express
+  // strips, so mount at the root and filter on /api instead of app.use('/api').
   app.use(
-    '/api',
     createProxyMiddleware({
+      pathFilter: '/api',
       target: process.env.API_PROXY_TARGET || 'http://localhost:3001',
       changeOrigin: true
     })

@@ -31,4 +31,7 @@ Thumbs.db
 
 # Excel files generated for testing
 *.xlsx
-*.xls 
+*.xls
+
+# Claude Code local config
+.claude/
