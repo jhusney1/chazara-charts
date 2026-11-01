@@ -16,6 +16,7 @@ import {
   COLUMNS_PER_PAGE_OPTIONS
 } from './BaseChartForm';
 import translations from './data/translations';
+import MasechetCombobox from './MasechetCombobox';
 
 // Small Hebrew numeral for perek numbers in the dropdown group labels
 // (1 -> א, 15 -> טו). Perek counts never exceed 24, so tens and units suffice.
@@ -205,21 +206,14 @@ const GemaraChartForm = ({ tractateData, perakimData = {} }) => {
                 <label htmlFor="tractate" className="block text-sm font-medium text-gray-700 mb-2">
                   {t.selectMasechet}
                 </label>
-                <select
+                <MasechetCombobox
                   id="tractate"
                   name="tractate"
                   value={formData.tractate}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                  required
-                >
-                  <option value="" disabled>Choose a Masechet</option>
-                  {Object.keys(tractateData).map(tractate => (
-                    <option key={tractate} value={tractate}>
-                      {tractate} ({tractateData[tractate]} daf)
-                    </option>
-                  ))}
-                </select>
+                  onChange={(tractate) => setFormData((prev) => ({ ...prev, tractate: tractate || '' }))}
+                  tractateData={tractateData}
+                  labels={t}
+                />
               </div>
               
               {/* Learning Mode Toggle */}
@@ -267,7 +261,8 @@ const GemaraChartForm = ({ tractateData, perakimData = {} }) => {
                       name="startDaf"
                       value={formData.startDaf}
                       onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                      disabled={!formData.tractate}
                       required
                     >
                       {renderDafOptions(2, formData.tractate ? Math.min(maxDaf, formData.endDaf) : 10)}
@@ -280,7 +275,8 @@ const GemaraChartForm = ({ tractateData, perakimData = {} }) => {
                         name="startAmud"
                         value={formData.startAmud}
                         onChange={handleChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                        disabled={!formData.tractate}
                       >
                         <option value="a">א</option>
                         <option value="b">ב</option>
@@ -302,7 +298,8 @@ const GemaraChartForm = ({ tractateData, perakimData = {} }) => {
                       name="endDaf"
                       value={formData.endDaf}
                       onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                      disabled={!formData.tractate}
                       required
                     >
                       {renderDafOptions(Number(formData.startDaf), maxDaf)}
@@ -315,7 +312,8 @@ const GemaraChartForm = ({ tractateData, perakimData = {} }) => {
                         name="endAmud"
                         value={formData.endAmud}
                         onChange={handleChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                        disabled={!formData.tractate}
                       >
                         <option value="a">א</option>
                         <option value="b">ב</option>

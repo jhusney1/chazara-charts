@@ -25,6 +25,8 @@ const translations = {
     // Gemara chart specific
     generateChart: 'Gemara Chart Generator',
     selectMasechet: 'Select Masechet',
+    searchMasechet: 'Type to search a masechet...',
+    noMasechetMatches: 'No masechet matches',
     startingDaf: 'Starting Daf',
     endingDaf: 'Ending Daf',
     dafPerDay: 'Learning Mode',
@@ -91,6 +93,8 @@ const translations = {
     // Gemara chart specific
     generateChart: 'מחולל טבלאות גמרא',
     selectMasechet: 'בחר מסכת',
+    searchMasechet: 'הקלד לחיפוש מסכת...',
+    noMasechetMatches: 'לא נמצאה מסכת מתאימה',
     startingDaf: 'דף התחלה',
     endingDaf: 'דף סיום',
     dafPerDay: 'מצב לימוד',
