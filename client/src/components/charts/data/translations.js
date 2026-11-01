@@ -71,6 +71,9 @@ const translations = {
     bookMode: 'Book Mode',
     customMode: 'Custom Mode',
     simanMode: 'Siman Mode',
+    siman: 'Siman',
+    searchSiman: 'Type a siman number or a topic...',
+    noSimanMatches: 'No siman matches',
     mishnaBeruraFooter: 'This will generate a chart for the selected Mishna Berura section with columns for the date learned and each review session.',
     
     tooltips: {
@@ -151,6 +154,9 @@ const translations = {
     bookMode: 'מצב ספר',
     customMode: 'מצב מותאם אישית',
     simanMode: 'מצב סימן',
+    siman: 'סימן',
+    searchSiman: 'הקלד מספר סימן או נושא...',
+    noSimanMatches: 'לא נמצא סימן מתאים',
     mishnaBeruraFooter: 'זה ייצור טבלה למשנה ברורה שנבחרה עם עמודות לתאריך הלימוד ולכל חזרה.',
     
     tooltips: {

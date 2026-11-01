@@ -82,7 +82,7 @@ function App() {
                 </div>
               </div>
               <p className="text-lg text-gray-700 max-w-2xl mx-auto">
-                Generate personalized Talmud study review charts to track your learning progress.
+                Generate personalized Torah review charts for Gemara, Mishnayos and Mishna Berura.
               </p>
             </div>
             
