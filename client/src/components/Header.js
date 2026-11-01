@@ -23,7 +23,7 @@ const Header = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold m-0">Chazara Charts</h1>
-              <p className="text-xs text-indigo-200">Talmud Study Tracking</p>
+              <p className="text-xs text-indigo-200">Torah Review Charts</p>
             </div>
           </div>
           
@@ -34,9 +34,6 @@ const Header = () => {
               </a>
               <a href="https://dafyomi.org" target="_blank" rel="noopener noreferrer" className="text-white hover:text-indigo-200 transition-colors font-medium">
                 Daf Yomi
-              </a>
-              <a href="https://www.alephbeta.org" target="_blank" rel="noopener noreferrer" className="text-white hover:text-indigo-200 transition-colors font-medium">
-                Aleph Beta
               </a>
             </nav>
             

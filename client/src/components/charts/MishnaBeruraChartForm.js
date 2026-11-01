@@ -17,7 +17,8 @@ import {
 } from './BaseChartForm';
 import translations from './data/translations';
 import ChartPreview from './ChartPreview';
-import mishnaBeruraData from './data/mishnaBeruraData';
+import mishnaBeruraData, { simanInfo } from './data/mishnaBeruraData';
+import SimanCombobox from './SimanCombobox';
 
 // Helper function to create a range of numbers
 const range = (start, end) => {
@@ -26,22 +27,6 @@ const range = (start, end) => {
     result.push(i);
   }
   return result;
-};
-
-// Helper to get the topic for a specific siman
-const getTopicForSiman = (siman) => {
-  const target = parseInt(siman, 10);
-  if (Number.isNaN(target)) return null;
-
-  for (const chelek in mishnaBeruraData) {
-    for (const topic in mishnaBeruraData[chelek]) {
-      const { start, end } = mishnaBeruraData[chelek][topic];
-      if (target >= start && target <= end) {
-        return { topic, chelek };
-      }
-    }
-  }
-  return null;
 };
 
 // The full siman range covered by the data, used to bound custom selections.
@@ -75,7 +60,6 @@ const MishnaBeruraChartForm = () => {
   });
   
   const [loading, setLoading] = useState(false);
-  const [allTopics, setAllTopics] = useState([]);
   
   // Get translation based on current language
   const t = translations[language === 'he' ? 'he' : 'en'];
@@ -107,12 +91,14 @@ const MishnaBeruraChartForm = () => {
     }
   }, [formData.selectionMode]);
   
-  // Effect to update topic options when chelek changes in topic mode
+  // Topics of the chosen chelek, derived each render so the list can never
+  // lag behind the selection (holding it in state rendered the previous
+  // book's topics against the new book's data and crashed).
+  const topicsOfChelek = formData.chelek ? Object.keys(mishnaBeruraData[formData.chelek] || {}) : [];
+
+  // Effect to reset the topic / siman range when chelek changes
   useEffect(() => {
     if (formData.chelek) {
-      const topics = Object.keys(mishnaBeruraData[formData.chelek]);
-      setAllTopics(topics);
-      
       if (formData.selectionMode === 'book') {
         // If in book mode, set the siman range to cover the entire chelek
         let minSiman = Infinity;
@@ -203,8 +189,8 @@ const MishnaBeruraChartForm = () => {
       topicName = formData.chelek;
     } else if (formData.selectionMode === 'custom') {
       topicName = `Simanim ${startSiman}-${endSiman}`;
-      const from = getTopicForSiman(startSiman);
-      const to = getTopicForSiman(endSiman);
+      const from = simanInfo(startSiman);
+      const to = simanInfo(endSiman);
       if (from && to) {
         sectionName = from.chelek === to.chelek ? from.chelek : `${from.chelek} - ${to.chelek}`;
       } else {
@@ -367,11 +353,14 @@ const MishnaBeruraChartForm = () => {
                     required
                   >
                     <option value="" disabled>Choose a Topic</option>
-                    {allTopics.map(topic => (
-                      <option key={topic} value={topic}>
-                        {topic} ({mishnaBeruraData[formData.chelek][topic].start}-{mishnaBeruraData[formData.chelek][topic].end})
-                      </option>
-                    ))}
+                    {topicsOfChelek.map(topic => {
+                      const { start, end, heName } = mishnaBeruraData[formData.chelek][topic];
+                      return (
+                        <option key={topic} value={topic}>
+                          {topic} · {heName} ({start}-{end})
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               )}
@@ -381,54 +370,43 @@ const MishnaBeruraChartForm = () => {
                 <>
                   <div>
                     <label htmlFor="startSiman" className="block text-sm font-medium text-gray-700 mb-2">
-                      Starting Siman
+                      {t.startingSiman}
                     </label>
-                    <input
-                      type="number"
+                    <SimanCombobox
                       id="startSiman"
                       name="startSiman"
-                      min={SIMAN_BOUNDS.min}
-                      max={SIMAN_BOUNDS.max}
-                      value={formData.startSiman}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                      required
+                      value={Number(formData.startSiman)}
+                      onChange={(startSiman) => setFormData(prev => ({ ...prev, startSiman }))}
+                      labels={t}
                     />
-                    {formData.startSiman && (
-                      <div className="mt-1 text-xs text-gray-500">
-                        {getTopicForSiman(formData.startSiman) ? 
-                          `From: ${getTopicForSiman(formData.startSiman).topic} (${getTopicForSiman(formData.startSiman).chelek})` : 
-                          ''}
+                    {simanInfo(formData.startSiman) && (
+                      <div className="mt-1 text-xs text-gray-500 hebrew">
+                        {simanInfo(formData.startSiman).heName}
                       </div>
                     )}
                   </div>
-                  
+
                   <div>
                     <label htmlFor="endSiman" className="block text-sm font-medium text-gray-700 mb-2">
-                      Ending Siman
+                      {t.endingSiman}
                     </label>
-                    <input
-                      type="number"
+                    <SimanCombobox
                       id="endSiman"
                       name="endSiman"
-                      min={formData.startSiman}
-                      max={SIMAN_BOUNDS.max}
-                      value={formData.endSiman}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                      required
+                      value={Number(formData.endSiman)}
+                      onChange={(endSiman) => setFormData(prev => ({ ...prev, endSiman }))}
+                      min={Number(formData.startSiman) || 1}
+                      labels={t}
                     />
-                    {formData.endSiman && (
-                      <div className="mt-1 text-xs text-gray-500">
-                        {getTopicForSiman(formData.endSiman) ? 
-                          `To: ${getTopicForSiman(formData.endSiman).topic} (${getTopicForSiman(formData.endSiman).chelek})` : 
-                          ''}
+                    {simanInfo(formData.endSiman) && (
+                      <div className="mt-1 text-xs text-gray-500 hebrew">
+                        {simanInfo(formData.endSiman).heName}
                       </div>
                     )}
                   </div>
                 </>
               )}
-              
+
               {/* Number of Reviews */}
               <div className="col-span-1 md:col-span-2">
                 <label htmlFor="reviews" className="block text-sm font-medium text-gray-700 mb-2">
