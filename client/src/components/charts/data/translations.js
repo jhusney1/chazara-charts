@@ -17,6 +17,8 @@ const translations = {
     columnsPerPage: 'Columns Per Page',
     includeDateColumn: 'Include Date Column',
     startDate: 'Start Date',
+    chazaraDays: 'Chazara days (no new learning)',
+    weekdays: { sun: 'Sun', mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Shabbat' },
     customization: 'Chart Customization',
     mainSettings: 'Main Settings',
     
@@ -61,6 +63,7 @@ const translations = {
       columnsPerPage: 'Determines how many columns to split your chart into on each page',
       includeDateColumn: 'Include a column for marking the date when each item was learned',
       startDate: 'If date column is included, start filling dates from this day',
+      chazaraDays: 'Days of the week reserved for review. The date column skips them and schedules the next item on the following allowed day.',
       dafPerDay: 'Switch between Daf mode (full page) and Amud mode (half page)',
       includePerakim: 'Add a heading row before the first daf of each perek. It is a label, not a daf: no date and no review boxes.',
       chaptersPerDay: 'Switch between Chapter mode (full chapter) and Mishnah mode (individual mishnah)'
@@ -80,6 +83,8 @@ const translations = {
     columnsPerPage: 'עמודות בכל דף',
     includeDateColumn: 'כלול עמודת תאריך',
     startDate: 'תאריך התחלה',
+    chazaraDays: 'ימי חזרה (ללא לימוד חדש)',
+    weekdays: { sun: 'א׳', mon: 'ב׳', tue: 'ג׳', wed: 'ד׳', thu: 'ה׳', fri: 'ו׳', sat: 'שבת' },
     customization: 'התאמה אישית של הטבלה',
     mainSettings: 'הגדרות ראשיות',
     
@@ -124,6 +129,7 @@ const translations = {
       columnsPerPage: 'קובע לכמה עמודות לחלק את הטבלה שלך בכל עמוד',
       includeDateColumn: 'כלול עמודה לסימון התאריך שבו נלמד כל פריט',
       startDate: 'אם עמודת תאריך נכללת, התחל למלא תאריכים מיום זה',
+      chazaraDays: 'ימים בשבוע המיועדים לחזרה. עמודת התאריך מדלגת עליהם וקובעת את הפריט הבא ליום המותר הבא.',
       dafPerDay: 'בחר בין מצב דף (עמוד שלם) ומצב עמוד (חצי עמוד)',
       includePerakim: 'הוסף שורת כותרת לפני הדף הראשון של כל פרק. זו כותרת בלבד, לא דף: בלי תאריך ובלי תיבות חזרה.',
       chaptersPerDay: 'בחר בין מצב פרק (פרק שלם) ומצב משנה (משנה בודדת)'

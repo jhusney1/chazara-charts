@@ -8,6 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import {
   Tooltip,
+  ChazaraDaysPicker,
   FormatSelection,
   GenerateButton,
   downloadChart,
@@ -69,6 +70,7 @@ const MishnaBeruraChartForm = () => {
     columnsPerPage: 1,
     includeDateColumn: true,
     startDate: new Date().toISOString().split('T')[0],
+    skipDays: [],
   });
   
   const [loading, setLoading] = useState(false);
@@ -217,7 +219,8 @@ const MishnaBeruraChartForm = () => {
         useHebrew: formData.useHebrew,
         columnsPerPage: Number(formData.columnsPerPage),
         includeDateColumn: formData.includeDateColumn,
-        startDate: formData.startDate
+        startDate: formData.startDate,
+        skipDays: formData.skipDays
       };
 
       // Make API request based on format
@@ -498,6 +501,11 @@ const MishnaBeruraChartForm = () => {
                       value={formData.startDate}
                       onChange={handleChange}
                       className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                    />
+                    <ChazaraDaysPicker
+                      value={formData.skipDays}
+                      onChange={(skipDays) => setFormData((prev) => ({ ...prev, skipDays }))}
+                      labels={t}
                     />
                   </div>
                 </div>
