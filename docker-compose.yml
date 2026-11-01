@@ -1,6 +1,11 @@
 services:
   # Production service: Express server serving React build
   app:
+    # Built and pushed by .github/workflows/ci.yml on every push to master;
+    # the Droplet only pulls. APP_IMAGE_TAG is written to .env by
+    # scripts/deploy-remote.sh. `docker compose up --build app` still works
+    # for a local build and tags the result with this name.
+    image: ghcr.io/jhusney1/chazara-charts:${APP_IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile

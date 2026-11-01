@@ -50,11 +50,11 @@ Run all of these; a failure means go back to Phase 2.
 
 ## Phase 5 - Release to production
 
-Releases are automatic: every push to `master` that passes the `test` job runs the `deploy` job in `.github/workflows/ci.yml`, which SSHes to the Droplet, rebuilds, and smoke-checks `PROD_URL` for the new commit.
+Releases are automatic: every push to `master` that passes `test` runs `build` (image pushed to ghcr.io tagged with the short SHA) then `deploy` (Droplet pulls that tag, restarts, smoke-checks `PROD_URL`). Expect a few minutes for build, seconds for deploy.
 
 1. After the merge, watch it: `gh run watch $(gh run list --branch master --limit 1 --json databaseId --jq '.[0].databaseId') --exit-status`.
 2. Confirm independently: `npm run smoke -- https://chazaracharts.com <short-sha>`.
-3. If the deploy job fails: read `gh run view --log-failed`, then roll back from here with `npm run release -- <previous-sha>` (manual path, same server script) and report the failure with the container logs (`ssh $DEPLOY_HOST 'cd $DEPLOY_PATH && docker compose logs --tail 100 app'`).
+3. If the deploy job fails: read `gh run view --log-failed`, then roll back from here with `npm run release -- <previous-sha>` (pulls the image CI built for that commit) and report the failure with the container logs (`ssh $DEPLOY_HOST 'cd $DEPLOY_PATH && docker compose logs --tail 100 app'`).
 4. Close the loop: `gh issue close N --comment "Released in <sha>, live at <PROD_URL>"` (squash-merge usually auto-closes it; closing again is harmless).
 
 `/ship release` with nothing new to deploy means: re-run the last master workflow (`gh run rerun <id>`) or `npm run release` by hand.

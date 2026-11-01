@@ -198,21 +198,24 @@ date handling across timezones, Hebrew conversion, and input validation.
 
 ## Shipping a change
 
-Every push to `master` that passes CI is released automatically: the
-`deploy` job in `.github/workflows/ci.yml` SSHes to the DigitalOcean
-Droplet, resets its checkout to that commit, rebuilds with `docker compose
-up --build -d app`, then verifies `/api/health` reports the commit. It needs
-the repository secrets `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_PATH` and
-the variable `PROD_URL`.
+Every push to `master` that passes CI is released automatically by
+`.github/workflows/ci.yml`: the `build` job builds the production image on
+GitHub's runners and pushes it to `ghcr.io/jhusney1/chazara-charts` tagged
+with the short commit SHA, then the `deploy` job SSHes to the DigitalOcean
+Droplet, pulls that tag, restarts the container, and verifies `/api/health`
+reports the commit. The Droplet never builds, so a release takes seconds.
+It needs the repository secrets `DEPLOY_SSH_KEY`, `DEPLOY_HOST`,
+`DEPLOY_PATH` and the variable `PROD_URL`.
 
 The `/ship` skill in `.claude/skills/ship/` drives the loop that leads
 there: GitHub issue, `task/N-slug` branch, implement, `npm test` plus
 client build plus `npm run smoke -- http://localhost:3002`, PR with CI,
 then squash merge, which triggers the release.
 
-`npm run release` runs the same server-side script (`scripts/deploy-remote.sh`)
-from your machine using `deploy.env` (copy `deploy.env.example`), and
-`npm run release -- <sha>` rolls production back to any earlier commit.
+`npm run release -- <sha>` rolls production back to any commit CI has
+built, using the same server script (`scripts/deploy-remote.sh`) from your
+machine with `deploy.env` (copy `deploy.env.example`). Add `--build` to
+build on the Droplet instead when CI is unavailable; it is slow.
 
 ## Project layout
 

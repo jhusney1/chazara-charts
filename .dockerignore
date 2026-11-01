@@ -1,0 +1,10 @@
+.git
+node_modules
+client/node_modules
+client/build
+test
+.github
+.claude
+scripts
+*.md
+deploy.env*
