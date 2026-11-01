@@ -35,6 +35,8 @@ const pdfStyles = {
   alternateRowColor: '#f3f4f6',
   headerFillColor: '#4338ca',
   headerTextColor: '#ffffff',
+  // Perek heading rows: a soft tint of the header colour.
+  headingFillColor: '#e0e7ff',
 
   // Fonts
   regularFont: 'Helvetica',
@@ -79,6 +81,7 @@ const chartThemes = {
 const excelStyles = {
   headerColor: '4338CA',
   alternateRowColor: 'F3F4F6',
+  headingRowColor: 'E0E7FF',
   // Column widths
   dafColumnWidth: 8,
   dateColumnWidth: 12,

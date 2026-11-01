@@ -16,16 +16,17 @@ import {
 } from './BaseChartForm';
 import translations from './data/translations';
 
-// Helper function to create a range of numbers
-const range = (start, end) => {
-  const result = [];
-  for (let i = start; i <= end; i++) {
-    result.push(i);
-  }
-  return result;
+// Small Hebrew numeral for perek numbers in the dropdown group labels
+// (1 -> א, 15 -> טו). Perek counts never exceed 24, so tens and units suffice.
+const HEBREW_TENS = ['', 'י', 'כ', 'ל'];
+const HEBREW_UNITS = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'];
+const hebrewNumeral = (n) => {
+  if (n === 15) return 'טו';
+  if (n === 16) return 'טז';
+  return `${HEBREW_TENS[Math.floor(n / 10)] || ''}${HEBREW_UNITS[n % 10]}`;
 };
 
-const GemaraChartForm = ({ tractateData }) => {
+const GemaraChartForm = ({ tractateData, perakimData = {} }) => {
   const { language } = useLanguage();
   
   const [formData, setFormData] = useState({
@@ -40,7 +41,8 @@ const GemaraChartForm = ({ tractateData }) => {
     columnsPerPage: 1,
     includeDateColumn: true,
     startDate: new Date().toISOString().split('T')[0],
-    dafPerDay: true
+    dafPerDay: true,
+    includePerakim: true
   });
   
   const [loading, setLoading] = useState(false);
@@ -60,6 +62,43 @@ const GemaraChartForm = ({ tractateData }) => {
   
   // Get translation based on current language
   const t = translations[language === 'he' ? 'he' : 'en'];
+
+  // Perakim of the selected masechet, used to group the daf dropdowns.
+  const perakim = (formData.tractate && perakimData[formData.tractate]) || [];
+
+  const perekLabel = (perek) =>
+    language === 'he'
+      ? `${t.perek} ${hebrewNumeral(perek.number)} - ${perek.heName}`
+      : `${t.perek} ${perek.number} - ${perek.name}`;
+
+  // Renders dafim `from`..`to` as <option>s, grouped under the perek each
+  // belongs to so every perek name appears right before the daf it starts on.
+  const renderDafOptions = (from, to) => {
+    const groups = [];
+    let current = null;
+
+    for (let daf = from; daf <= to; daf++) {
+      const starting = perakim.filter((perek) => perek.daf === daf);
+      if (starting.length || !current) {
+        current = { perakim: starting, dafim: [] };
+        groups.push(current);
+      }
+      current.dafim.push(daf);
+    }
+
+    return groups.map((group) => {
+      const options = group.dafim.map((daf) => (
+        <option key={daf} value={daf}>{daf}</option>
+      ));
+      if (!group.perakim.length) return options;
+      const label = group.perakim.map(perekLabel).join(' / ');
+      return (
+        <optgroup key={`perek-${group.dafim[0]}`} label={label}>
+          {options}
+        </optgroup>
+      );
+    });
+  };
   
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -119,7 +158,8 @@ const GemaraChartForm = ({ tractateData }) => {
         columnsPerPage: Number(formData.columnsPerPage),
         includeDateColumn: formData.includeDateColumn,
         startDate: formData.startDate,
-        dafPerDay: formData.dafPerDay
+        dafPerDay: formData.dafPerDay,
+        includePerakim: formData.includePerakim
       };
 
       // Make API request based on format
@@ -227,9 +267,7 @@ const GemaraChartForm = ({ tractateData }) => {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                       required
                     >
-                      {range(2, formData.tractate ? Math.min(maxDaf, formData.endDaf) : 10).map(num => (
-                        <option key={num} value={num}>{num}</option>
-                      ))}
+                      {renderDafOptions(2, formData.tractate ? Math.min(maxDaf, formData.endDaf) : 10)}
                     </select>
                   </div>
                   {!formData.dafPerDay && (
@@ -264,9 +302,7 @@ const GemaraChartForm = ({ tractateData }) => {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                       required
                     >
-                      {range(formData.startDaf, maxDaf).map(num => (
-                        <option key={num} value={num}>{num}</option>
-                      ))}
+                      {renderDafOptions(Number(formData.startDaf), maxDaf)}
                     </select>
                   </div>
                   {!formData.dafPerDay && (
@@ -317,6 +353,22 @@ const GemaraChartForm = ({ tractateData }) => {
                 <label htmlFor="useHebrew" className="ml-2 block text-sm text-gray-700">
                   {t.useHebrew} (<span className="hebrew">א, ב, ג...</span>)
                 </label>
+              </div>
+
+              {/* Perek heading rows */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="includePerakim"
+                  name="includePerakim"
+                  checked={formData.includePerakim}
+                  onChange={handleChange}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 rounded transition-all"
+                />
+                <label htmlFor="includePerakim" className="ml-2 block text-sm text-gray-700">
+                  {t.includePerakim}
+                </label>
+                <Tooltip text={t.tooltips.includePerakim} />
               </div>
             </div>
           </div>
