@@ -10,7 +10,9 @@
     "client-build": "cd client && npm run build",
     "dev-full": "concurrently \"npm run dev\" \"npm run client\"",
     "install-all": "npm install && cd client && npm install",
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "smoke": "bash scripts/smoke.sh",
+    "release": "bash scripts/release.sh"
   },
   "keywords": [
     "excel",
@@ -34,4 +36,4 @@
     "nodemon": "^3.0.1",
     "concurrently": "^8.2.0"
   }
-} 
+}

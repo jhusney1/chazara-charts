@@ -37,6 +37,10 @@ COPY --from=build /usr/src/app/data ./data
 # Hebrew-capable font, required for Hebrew numerals in generated PDFs
 COPY --from=build /usr/src/app/assets ./assets
 
+# Commit being deployed, surfaced by /api/health
+ARG GIT_SHA=unknown
+ENV GIT_SHA=$GIT_SHA
+
 # Set environment to production
 ENV NODE_ENV=production
 ENV PORT=3000

@@ -196,6 +196,17 @@ Runs the suite with Node's built-in test runner (no extra dependencies).
 It covers all six endpoints end to end: column counts, pagination,
 date handling across timezones, Hebrew conversion, and input validation.
 
+## Shipping a change
+
+The `/ship` skill in `.claude/skills/ship/` drives the whole loop: GitHub
+issue, `task/N-slug` branch, implement, `npm test` plus client build plus
+`npm run smoke -- http://localhost:3002`, PR with CI, squash merge, then
+`npm run release`. The release script (`scripts/release.sh`) SSHes to the
+DigitalOcean Droplet named in `deploy.env` (copy `deploy.env.example`),
+resets its checkout to `origin/master`, rebuilds with `docker compose
+up --build -d`, then verifies `/api/health` reports the deployed commit.
+`npm run release -- <sha>` rolls back to any earlier commit.
+
 ## Project layout
 
 ```

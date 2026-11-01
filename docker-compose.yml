@@ -4,6 +4,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
     ports:
       # Host port is configurable so this can coexist with anything else
       # already bound to 3000 on the host. Container port stays 3000.

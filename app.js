@@ -6,6 +6,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 
+const pkg = require('./package.json');
 const tractateData = require('./data/tractateData');
 const { chartThemes } = require('./data/chartConfig');
 const {
@@ -39,7 +40,7 @@ app.get('/api/tractates', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', version: pkg.version, commit: process.env.GIT_SHA || 'unknown' });
 });
 
 /**

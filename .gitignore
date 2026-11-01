@@ -33,5 +33,6 @@ Thumbs.db
 *.xlsx
 *.xls
 
-# Claude Code local config
-.claude/
+# Local-only config
+.claude/settings.local.json
+deploy.env
