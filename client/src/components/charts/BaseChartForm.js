@@ -67,6 +67,52 @@ export const Tooltip = ({ text }) => {
 };
 
 // Format Selection component
+// Weekday keys in JavaScript's getDay() order, so the index is the value sent
+// to the API (0 = Sunday).
+export const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+/**
+ * Toggles for the weekdays reserved for chazara. The date column passes over
+ * them, so no new item is scheduled on those days.
+ */
+export const ChazaraDaysPicker = ({ value = [], onChange, labels }) => {
+  const toggle = (day) => {
+    const next = value.includes(day)
+      ? value.filter((selected) => selected !== day)
+      : [...value, day].sort((a, b) => a - b);
+    onChange(next);
+  };
+
+  return (
+    <div className="mt-3">
+      <div className="flex items-center mb-2">
+        <span className="block text-sm font-medium text-gray-700">{labels.chazaraDays}</span>
+        <Tooltip text={labels.tooltips.chazaraDays} />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {WEEKDAY_KEYS.map((key, day) => {
+          const selected = value.includes(day);
+          return (
+            <button
+              type="button"
+              key={key}
+              onClick={() => toggle(day)}
+              aria-pressed={selected}
+              className={`px-3 py-1 rounded-full text-sm border transition-all ${
+                selected
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400'
+              }`}
+            >
+              {labels.weekdays[key]}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 export const FormatSelection = ({ format, onChange, labels }) => {
   const { language } = useLanguage();
   const t = labels[language === 'he' ? 'he' : 'en'];

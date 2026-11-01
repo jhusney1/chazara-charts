@@ -8,6 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import {
   Tooltip,
+  ChazaraDaysPicker,
   FormatSelection,
   GenerateButton,
   downloadChart,
@@ -60,6 +61,7 @@ const MishnayotChartForm = () => {
     columnsPerPage: 1,
     includeDateColumn: true,
     startDate: new Date().toISOString().split('T')[0],
+    skipDays: [],
     chaptersPerDay: true
   });
   
@@ -182,6 +184,7 @@ const MishnayotChartForm = () => {
         columnsPerPage: Number(formData.columnsPerPage),
         includeDateColumn: formData.includeDateColumn,
         startDate: formData.startDate,
+        skipDays: formData.skipDays,
         chaptersPerDay: formData.chaptersPerDay
       };
 
@@ -476,6 +479,11 @@ const MishnayotChartForm = () => {
                       value={formData.startDate}
                       onChange={handleChange}
                       className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
+                    />
+                    <ChazaraDaysPicker
+                      value={formData.skipDays}
+                      onChange={(skipDays) => setFormData((prev) => ({ ...prev, skipDays }))}
+                      labels={t}
                     />
                   </div>
                 </div>
