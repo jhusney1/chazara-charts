@@ -198,14 +198,21 @@ date handling across timezones, Hebrew conversion, and input validation.
 
 ## Shipping a change
 
-The `/ship` skill in `.claude/skills/ship/` drives the whole loop: GitHub
-issue, `task/N-slug` branch, implement, `npm test` plus client build plus
-`npm run smoke -- http://localhost:3002`, PR with CI, squash merge, then
-`npm run release`. The release script (`scripts/release.sh`) SSHes to the
-DigitalOcean Droplet named in `deploy.env` (copy `deploy.env.example`),
-resets its checkout to `origin/master`, rebuilds with `docker compose
-up --build -d`, then verifies `/api/health` reports the deployed commit.
-`npm run release -- <sha>` rolls back to any earlier commit.
+Every push to `master` that passes CI is released automatically: the
+`deploy` job in `.github/workflows/ci.yml` SSHes to the DigitalOcean
+Droplet, resets its checkout to that commit, rebuilds with `docker compose
+up --build -d app`, then verifies `/api/health` reports the commit. It needs
+the repository secrets `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_PATH` and
+the variable `PROD_URL`.
+
+The `/ship` skill in `.claude/skills/ship/` drives the loop that leads
+there: GitHub issue, `task/N-slug` branch, implement, `npm test` plus
+client build plus `npm run smoke -- http://localhost:3002`, PR with CI,
+then squash merge, which triggers the release.
+
+`npm run release` runs the same server-side script (`scripts/deploy-remote.sh`)
+from your machine using `deploy.env` (copy `deploy.env.example`), and
+`npm run release -- <sha>` rolls production back to any earlier commit.
 
 ## Project layout
 

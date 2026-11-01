@@ -45,14 +45,19 @@ Run all of these; a failure means go back to Phase 2.
 1. `git push -u origin HEAD`
 2. `gh pr create --fill --body "Closes #N\n\n<what changed and how it was tested>"`
 3. `gh pr checks --watch` - CI (`.github/workflows/ci.yml`) must pass.
-4. Show the user: PR link, test results, the screenshot if any, and ask **once**: "Merge and release to production?" Stop here until they answer. This is the only pause in the workflow.
+4. Show the user: PR link, test results, the screenshot if any, and ask **once**: "Merge and release to production?" Stop here until they answer. This is the only pause in the workflow. Merging **is** releasing.
 5. On yes: `gh pr merge --squash --delete-branch`, then `git checkout master && git pull --ff-only`.
 
 ## Phase 5 - Release to production
 
-1. `npm run release` (runs `scripts/release.sh`): SSHes to the Droplet from `deploy.env`, resets the checkout there to `origin/master`, rebuilds with `docker compose up --build -d`, then runs the smoke check against `PROD_URL` and verifies `/api/health` reports the commit that was just deployed.
-2. If the smoke check fails: run `npm run release -- <previous-sha>` to roll back to the last good commit, then report the failure with the container logs (`ssh $DEPLOY_HOST 'cd $DEPLOY_PATH && docker compose logs --tail 100 app'`).
-3. Close the loop: `gh issue close N --comment "Released in <sha>, live at <PROD_URL>"` (squash-merge usually auto-closes it; closing again is harmless).
+Releases are automatic: every push to `master` that passes the `test` job runs the `deploy` job in `.github/workflows/ci.yml`, which SSHes to the Droplet, rebuilds, and smoke-checks `PROD_URL` for the new commit.
+
+1. After the merge, watch it: `gh run watch $(gh run list --branch master --limit 1 --json databaseId --jq '.[0].databaseId') --exit-status`.
+2. Confirm independently: `npm run smoke -- https://chazaracharts.com <short-sha>`.
+3. If the deploy job fails: read `gh run view --log-failed`, then roll back from here with `npm run release -- <previous-sha>` (manual path, same server script) and report the failure with the container logs (`ssh $DEPLOY_HOST 'cd $DEPLOY_PATH && docker compose logs --tail 100 app'`).
+4. Close the loop: `gh issue close N --comment "Released in <sha>, live at <PROD_URL>"` (squash-merge usually auto-closes it; closing again is harmless).
+
+`/ship release` with nothing new to deploy means: re-run the last master workflow (`gh run rerun <id>`) or `npm run release` by hand.
 
 ## Report
 

@@ -3,6 +3,12 @@ on:
   pull_request:
   push:
     branches: [master]
+
+# One deploy at a time; a newer push to master waits for the running one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -21,3 +27,32 @@ jobs:
         working-directory: client
       - run: npm run build
         working-directory: client
+
+  # Every push to master that passes tests is released to the Droplet.
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.PROD_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deploy key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${DEPLOY_HOST#*@}" >> ~/.ssh/known_hosts 2>/dev/null
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      - name: Deploy ${{ github.sha }}
+        run: |
+          SHA="$(git rev-parse --short "$GITHUB_SHA")"
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes "$DEPLOY_HOST" \
+            bash -s -- "$DEPLOY_PATH" "$SHA" < scripts/deploy-remote.sh
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      - name: Smoke-check production
+        run: bash scripts/smoke.sh "${{ vars.PROD_URL }}" "$(git rev-parse --short "$GITHUB_SHA")"
