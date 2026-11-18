@@ -49,7 +49,7 @@ const ChartForm = ({ tractateData, perakimData = {} }) => {
       value: CHART_TYPES.MISHNA_BERURA,
       label: t.mishnaBerura,
       description: t.mishnaBeruraDesc,
-      beta: true
+      beta: false
     }
   ];
 
