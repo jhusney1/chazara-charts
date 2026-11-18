@@ -1,15 +1,15 @@
 /**
- * Self-hosted analytics (Umami). See README "Analytics".
+ * Analytics with Umami Cloud. See README "Analytics".
  *
- * The tracker is served by our own server at /stats/script.js and posts to
- * /stats/api/send, so nothing leaves this site's domain. It sets no cookies
- * and records page views (with country/region/city, from the visitor's IP on
- * the server) plus the events sent through track() below.
+ * The tracker sets no cookies and records page views (with country, region
+ * and city) plus the events sent through track() below.
  */
 
-// The website's ID from the Umami dashboard (Settings -> Websites). Empty
-// means analytics is off: no script is loaded and track() does nothing.
-export const UMAMI_WEBSITE_ID = '';
+const UMAMI_SCRIPT = 'https://cloud.umami.is/script.js';
+
+// The website's ID in Umami Cloud (Settings -> Websites). Empty means
+// analytics is off: no script is loaded and track() does nothing.
+export const UMAMI_WEBSITE_ID = '97bbc990-bfa1-40ac-94cc-8906c5c7a653';
 
 // Only these hostnames are recorded, so local development and preview
 // builds never pollute the numbers.
@@ -21,7 +21,7 @@ export function loadAnalytics() {
 
   const script = document.createElement('script');
   script.defer = true;
-  script.src = '/stats/script.js';
+  script.src = UMAMI_SCRIPT;
   script.setAttribute('data-website-id', UMAMI_WEBSITE_ID);
   script.setAttribute('data-domains', TRACKED_DOMAINS);
   document.head.appendChild(script);
