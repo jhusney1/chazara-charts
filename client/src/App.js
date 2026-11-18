@@ -5,6 +5,7 @@ import Header, { LanguageContext } from './components/Header';
 import ChartForm from './components/ChartForm';
 import Footer from './components/Footer';
 import axios from 'axios';
+import { track } from './analytics';
 
 // API requests are same-origin by default.
 //
@@ -27,7 +28,9 @@ function App() {
   const [language, setLanguage] = useState('en');
 
   const toggleLanguage = () => {
-    setLanguage(prev => prev === 'en' ? 'he' : 'en');
+    const next = language === 'en' ? 'he' : 'en';
+    setLanguage(next);
+    track('switch-language', { language: next });
   };
 
   useEffect(() => {
