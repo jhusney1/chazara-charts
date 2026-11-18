@@ -23,12 +23,26 @@ grep -v '^APP_IMAGE_TAG=' .env > .env.tmp || true
 echo "APP_IMAGE_TAG=$SHA" >> .env.tmp
 mv .env.tmp .env
 
-# "app" is behind a compose profile; naming it activates that profile.
+# Analytics (Umami) secrets: generated here once, then kept. Changing
+# UMAMI_DB_PASSWORD later would lock Umami out of its existing database.
+secret() { openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n'; }
+for key in UMAMI_DB_PASSWORD UMAMI_APP_SECRET UMAMI_2FA_KEY; do
+  grep -q "^$key=" .env || echo "$key=$(secret)" >> .env
+done
+chmod 600 .env
+
+# Each service is behind a compose profile; naming it activates that profile.
 if [ "$MODE" = "build" ]; then
   GIT_SHA="$SHA" docker compose up --build -d --remove-orphans app
 else
   docker compose pull app
   docker compose up -d --no-build --remove-orphans app
+fi
+
+# Analytics runs beside the app but is never on its critical path: if Umami
+# cannot be pulled or started, the release still succeeds and says so.
+if ! { docker compose pull umami umami-db && docker compose up -d --no-build umami umami-db; }; then
+  echo "WARNING: analytics (umami) did not start; the app is deployed regardless." >&2
 fi
 docker image prune -f >/dev/null
 docker compose ps
