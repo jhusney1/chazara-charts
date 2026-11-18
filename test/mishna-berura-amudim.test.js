@@ -21,7 +21,7 @@ function loadClientData() {
   return sandbox.exports;
 }
 
-const { AMUD_COUNT, amudChalakim, amudInfo, amudLabel } = loadClientData();
+const { AMUD_COUNT, amudChalakim, amudInfo, amudLabel, amudRangeForSimanim } = loadClientData();
 
 test('the cycle has 1750 amudim, from 1:1 to the end of Orach Chaim', () => {
   assert.equal(AMUD_COUNT, 1750);
@@ -70,4 +70,25 @@ test('row labels carry the amud number and where it starts', () => {
   // Amud 637 is a review day for siman 259, with no se'if of its own.
   assert.equal(amudLabel(637), '637 · 259');
   assert.equal(amudLabel(9999), '9999');
+});
+
+const range = (from, to) => ({ ...amudRangeForSimanim(from, to) });
+
+test('a siman range maps to the amudim that cover it', () => {
+  // A whole chelek: exactly its amudim.
+  assert.deepEqual(range(128, 241), { start: 281, end: 579 });
+  assert.deepEqual(range(1, 697), { start: 1, end: AMUD_COUNT });
+  // Siman 143 is amudim 326-330 (326 opens at 143:1).
+  assert.deepEqual(range(143, 143), { start: 326, end: 330 });
+  // Siman 127 begins inside amud 280, which opens at 126:3.
+  assert.equal(range(127, 127).start, 280);
+  // Se'if 12:1 spans amudim 43 and 44: the range starts at the first.
+  assert.equal(range(12, 12).start, 43);
+  // Laws of Tzitzit (8-24) ends with the last amud that starts by siman 24.
+  const tzitzit = range(8, 24);
+  assert.equal(amudInfo(tzitzit.start).siman, 8);
+  assert.ok(amudInfo(tzitzit.end).siman <= 24 && amudInfo(tzitzit.end + 1).siman > 24);
+  // Nonsense in, nothing out.
+  assert.equal(amudRangeForSimanim(20, 10), null);
+  assert.equal(amudRangeForSimanim('x', 10), null);
 });

@@ -153,6 +153,37 @@ export function amudLabel(amud) {
   const info = amudInfo(amud);
   return info ? \`\${info.amud} · \${amudStart(amud)}\` : String(amud);
 }
+
+// Orders amud starts; a review amud (no se'if) follows every se'if of its siman.
+const startKey = (info) => [info.siman, info.seif === null ? Infinity : info.seif];
+const before = (a, b) => a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]);
+
+/**
+ * The amudim that cover simanim startSiman-endSiman, as { start, end }: from
+ * the amud in which startSiman begins (which may open partway through the
+ * previous siman) to the last amud that starts at or before endSiman.
+ */
+export function amudRangeForSimanim(startSiman, endSiman) {
+  const from = [Number(startSiman), 1];
+  const to = Number(endSiman);
+  if (!(from[0] >= 1) || !(to >= from[0])) return null;
+
+  // First amud starting at or after startSiman:1. If it starts exactly there
+  // it is the first amud of the range; otherwise startSiman begins inside the
+  // amud before it.
+  let start = AMUD_STARTS.length;
+  for (let n = 1; n <= AMUD_STARTS.length; n++) {
+    if (!before(startKey(amudInfo(n)), from)) {
+      const key = startKey(amudInfo(n));
+      start = key[0] === from[0] && key[1] === from[1] ? n : Math.max(n - 1, 1);
+      break;
+    }
+  }
+
+  let end = start;
+  for (let n = start; n <= AMUD_STARTS.length && amudInfo(n).siman <= to; n++) end = n;
+  return { start, end };
+}
 `;
 
 writeFileSync(OUTPUT, source);
