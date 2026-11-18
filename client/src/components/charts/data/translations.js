@@ -74,6 +74,15 @@ const translations = {
     siman: 'Siman',
     searchSiman: 'Type a siman number or a topic...',
     noSimanMatches: 'No siman matches',
+    amud: 'Amud',
+    startingAmud: 'Starting Amud',
+    endingAmud: 'Ending Amud',
+    amudChelek: 'Fill a whole Chelek (optional)',
+    searchAmud: 'Type an amud or siman number...',
+    noAmudMatches: 'No amud matches',
+    moreAmudim: '{count} more - type a number to narrow the list',
+    amudYomiMode: 'Review by amud (Amud Yomi)',
+    amudHint: 'Each row is one amud of the Amud Yomi cycle, labelled with the siman:se\'if it starts at.',
     mishnaBeruraFooter: 'This will generate a chart for the selected Mishna Berura section with columns for the date learned and each review session.',
     
     tooltips: {
@@ -157,6 +166,15 @@ const translations = {
     siman: 'סימן',
     searchSiman: 'הקלד מספר סימן או נושא...',
     noSimanMatches: 'לא נמצא סימן מתאים',
+    amud: 'עמוד',
+    startingAmud: 'עמוד התחלה',
+    endingAmud: 'עמוד סיום',
+    amudChelek: 'מלא חלק שלם (לא חובה)',
+    searchAmud: 'הקלד מספר עמוד או סימן...',
+    noAmudMatches: 'לא נמצא עמוד מתאים',
+    moreAmudim: 'עוד {count} - הקלד מספר כדי לצמצם',
+    amudYomiMode: 'חזרה לפי עמוד (עמוד היומי)',
+    amudHint: 'כל שורה היא עמוד אחד במחזור עמוד היומי, עם הסימן והסעיף שבו הוא מתחיל.',
     mishnaBeruraFooter: 'זה ייצור טבלה למשנה ברורה שנבחרה עם עמודות לתאריך הלימוד ולכל חזרה.',
     
     tooltips: {
