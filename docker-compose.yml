@@ -18,8 +18,6 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      # The app serves the analytics tracker from its own domain (/stats/*).
-      - UMAMI_URL=http://umami:3000
     restart: unless-stopped
     volumes:
       # For production, you might want to exclude volumes to use the built image as is
@@ -27,52 +25,6 @@ services:
     networks:
       - chazara-network
     profiles: ["prod", "default"]
-
-  # Self-hosted analytics. The app proxies the tracker and event endpoint
-  # (/stats/script.js, /stats/api/send); the dashboard is published on
-  # localhost only, for nginx to serve at the stats subdomain
-  # (deploy/nginx/). Secrets come from .env, which scripts/deploy-remote.sh
-  # fills on the Droplet the first time; they are never committed.
-  umami:
-    image: ghcr.io/umami-software/umami:3.4.1
-    ports:
-      - "127.0.0.1:${UMAMI_PORT:-3010}:3000"
-    environment:
-      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD:-}@umami-db:5432/umami
-      APP_SECRET: ${UMAMI_APP_SECRET:-}
-      TWO_FACTOR_ENCRYPTION_KEY: ${UMAMI_2FA_KEY:-}
-    depends_on:
-      umami-db:
-        condition: service_healthy
-    init: true
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/heartbeat || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - chazara-network
-    profiles: ["prod"]
-
-  umami-db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: umami
-      POSTGRES_USER: umami
-      # Read only when the volume is first created.
-      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD:-}
-    volumes:
-      - umami-db-data:/var/lib/postgresql/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U umami -d umami"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - chazara-network
-    profiles: ["prod"]
 
   # Development API server
   api-dev:
@@ -118,6 +70,3 @@ services:
 networks:
   chazara-network:
     driver: bridge
-
-volumes:
-  umami-db-data:

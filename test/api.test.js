@@ -107,6 +107,15 @@ const MISHNA_BERURA = {
   startDate: '2026-08-16'
 };
 
+// Analytics moved to Umami Cloud: the app no longer forwards anything to a
+// self-hosted Umami, so its old /stats routes must not exist.
+test('the app serves no /stats analytics routes', async () => {
+  for (const path of ['/stats/script.js', '/stats/api/send']) {
+    const response = await fetch(`${baseUrl}${path}`, { method: path.endsWith('send') ? 'POST' : 'GET' });
+    assert.strictEqual(response.status, 404, `${path} should not be served`);
+  }
+});
+
 test('GET /api/tractates returns the tractate list', async () => {
   const response = await fetch(`${baseUrl}/api/tractates`);
   assert.strictEqual(response.status, 200);

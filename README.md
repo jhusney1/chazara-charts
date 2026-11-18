@@ -219,10 +219,9 @@ build on the Droplet instead when CI is unavailable; it is slow.
 
 ## Analytics
 
-Visitor statistics are self-hosted with [Umami](https://umami.is), which
-runs as two containers beside the app (`umami`, `umami-db` in
-`docker-compose.yml`). It uses no cookies. It records page views with
-country, region and city, plus these events:
+Visitor statistics use [Umami Cloud](https://cloud.umami.is). It uses no
+cookies. It records page views with country, region and city, plus these
+events:
 
 | Event | Properties |
 |---|---|
@@ -230,37 +229,9 @@ country, region and city, plus these events:
 | `generate-chart` | `chart`, `format`, `what` (topic / masechet / range), `section`, `unit` (Mishna Berura: siman or amud), `rows`, `reviews`, `hebrew` |
 | `switch-language` | `language` |
 
-Visitors' browsers only talk to this site: the app serves the tracker at
-`/stats/script.js` and forwards events from `/stats/api/send` to Umami
-(`lib/analyticsProxy.js`). Only the dashboard is public, at
-`stats.chazaracharts.com`. Tracking is limited to the production domain,
-so local development is never counted.
-
-### One-time setup
-
-The deploy script starts Umami and generates its secrets in the Droplet's
-`.env` on the first release that includes it. Then:
-
-1. **DNS**: add an `A` record for `stats` pointing at the Droplet's IP.
-2. **nginx**: copy `deploy/nginx/stats.chazaracharts.com.conf` to
-   `/etc/nginx/sites-available/`, link it into `sites-enabled/`, then run
-   `sudo nginx -t && sudo systemctl reload nginx`.
-3. **HTTPS**: `sudo certbot --nginx -d stats.chazaracharts.com`.
-4. **Visitor IPs**: Umami locates visitors from the `X-Real-IP` header, so
-   the main site's nginx block must pass it to the app:
-   `proxy_set_header X-Real-IP $remote_addr;` (and
-   `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`).
-   Without it every visit shows the Droplet's own location.
-5. **Sign in** at https://stats.chazaracharts.com with Umami's default
-   `admin` / `umami` and **change the password immediately**
-   (Settings → Profile).
-6. **Add the website** (Settings → Websites → Add, domain
-   `chazaracharts.com`), copy its Website ID into `UMAMI_WEBSITE_ID` in
-   `client/src/analytics.js`, and ship that change. Until then no tracker is
-   loaded.
-
-`UMAMI_PORT` (default 3010) moves the dashboard's localhost port if
-something else uses it; update the nginx block to match.
+`client/src/analytics.js` holds the website ID and loads the tracker. Only
+the production domain is counted (`data-domains`), so local development
+never shows up. Clearing `UMAMI_WEBSITE_ID` turns analytics off entirely.
 
 ## Project layout
 
@@ -270,10 +241,8 @@ app.js               Express app and route definitions
 lib/normalize.js     Request coercion, validation, date helpers
 lib/excelChart.js    Shared Excel chart builder
 lib/pdfChart.js      Shared PDF chart builder (pagination, fonts)
-lib/analyticsProxy.js Serves the Umami tracker from this domain
 data/                Tractate/chart config and Hebrew numeral conversion
 assets/fonts/        Hebrew-capable font for PDF output
 test/                Test suite
 client/              React front end
-deploy/nginx/        Reference nginx config for the analytics dashboard
 ```
