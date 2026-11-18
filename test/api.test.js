@@ -253,6 +253,60 @@ test('Latin-only charts do not embed the Hebrew font', async () => {
   assert.ok(!/FontFile2/.test(raw), 'no TrueType subset should be needed for Latin text');
 });
 
+/**
+ * Finds the cell holding `text` in a worksheet, as { row, col }.
+ */
+function findCell(sheet, text) {
+  let found = null;
+  sheet.eachRow((row, rowNumber) => {
+    row.eachCell((cell, colNumber) => {
+      if (!found && cell.value === text) found = { row: rowNumber, col: colNumber };
+    });
+  });
+  return found;
+}
+
+// Amud Yomi charts: one row per amud, labelled with where it starts.
+const MISHNA_BERURA_AMUD = {
+  ...MISHNA_BERURA,
+  unit: 'amud',
+  section: 'Chelek 2',
+  topic: 'Amudim 327-329',
+  pages: ['327 · 143:4', '328 · 143:6', '329 · 144:1']
+};
+
+test('Mishna Berura by amud heads the first column "Amud" and widens it', async () => {
+  const sheet = await readWorkbook(await post('/api/mishna-berura-excel', MISHNA_BERURA_AMUD));
+
+  const header = findCell(sheet, 'Amud');
+  assert.ok(header, 'expected an "Amud" header');
+  assert.strictEqual(findCell(sheet, 'Siman'), null, 'no "Siman" header in an amud chart');
+  assert.strictEqual(sheet.getCell(header.row + 1, header.col).value, '327 · 143:4');
+  assert.ok(sheet.getColumn(header.col).width > 8, 'the amud column should be wider than a siman column');
+});
+
+test('Mishna Berura amud labels convert to Hebrew numerals', async () => {
+  const sheet = await readWorkbook(
+    await post('/api/mishna-berura-excel', { ...MISHNA_BERURA_AMUD, useHebrew: true })
+  );
+  const header = findCell(sheet, 'Amud');
+  assert.strictEqual(sheet.getCell(header.row + 1, header.col).value, 'שכז · קמג:ד');
+});
+
+test('Mishna Berura without a unit keeps the siman column as before', async () => {
+  const sheet = await readWorkbook(await post('/api/mishna-berura-excel', MISHNA_BERURA));
+  const header = findCell(sheet, 'Siman');
+  assert.ok(header, 'expected a "Siman" header');
+  assert.strictEqual(sheet.getColumn(header.col).width, 8);
+  assert.strictEqual(findCell(sheet, 'Amud'), null);
+});
+
+test('Mishna Berura by amud renders as a one-page PDF', async () => {
+  const response = await post('/api/mishna-berura-pdf', MISHNA_BERURA_AMUD);
+  assert.strictEqual(response.status, 200);
+  assert.strictEqual(await pdfPageCount(response), 1);
+});
+
 // Custom siman range mode sends no chelek, which the server used to reject.
 test('a chart with no section still generates', async () => {
   const response = await post('/api/mishna-berura-excel', {

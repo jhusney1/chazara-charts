@@ -84,6 +84,8 @@ const excelStyles = {
   headingRowColor: 'E0E7FF',
   // Column widths
   dafColumnWidth: 8,
+  // Labels such as "327 · 143:4" (Mishna Berura by amud) need more room.
+  wideItemColumnWidth: 14,
   dateColumnWidth: 12,
   reviewColumnWidth: 6
 };

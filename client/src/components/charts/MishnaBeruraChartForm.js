@@ -19,6 +19,8 @@ import translations from './data/translations';
 import ChartPreview from './ChartPreview';
 import mishnaBeruraData, { simanInfo } from './data/mishnaBeruraData';
 import SimanCombobox from './SimanCombobox';
+import AmudCombobox from './AmudCombobox';
+import { AMUD_COUNT, amudChalakim, amudInfo, amudLabel, amudRangeForSimanim } from './data/mishnaBeruraAmudim';
 
 // Helper function to create a range of numbers
 const range = (start, end) => {
@@ -45,11 +47,16 @@ const MishnaBeruraChartForm = () => {
   const { language } = useLanguage();
   
   const [formData, setFormData] = useState({
-    selectionMode: 'topic', // 'topic', 'book', or 'custom'
+    selectionMode: 'topic', // 'topic', 'book', or 'custom': what to review
+    unit: 'siman', // 'siman' or 'amud': what each row of the chart is
     chelek: '',
     topic: '',
     startSiman: 1,
     endSiman: 1,
+    // A custom range by amud is chosen as amudim of the 1-1750 Amud Yomi
+    // cycle; topic and book selections convert their simanim to amudim.
+    startAmud: 1,
+    endAmud: 1,
     reviews: 3,
     useHebrew: false,
     format: 'excel',
@@ -148,6 +155,36 @@ const MishnaBeruraChartForm = () => {
       return { ...prev, endSiman: prev.startSiman };
     });
   }, [formData.startSiman, formData.endSiman, formData.selectionMode]);
+
+  // The same for a custom amud range.
+  useEffect(() => {
+    if (formData.selectionMode !== 'custom' || formData.unit !== 'amud') return;
+
+    setFormData(prev => {
+      const start = parseInt(prev.startAmud, 10);
+      const end = parseInt(prev.endAmud, 10);
+      if (Number.isNaN(start) || Number.isNaN(end) || start <= end) return prev;
+      return { ...prev, endAmud: prev.startAmud };
+    });
+  }, [formData.startAmud, formData.endAmud, formData.selectionMode, formData.unit]);
+
+  // Switching between siman and amud rows. A custom range carries over: the
+  // simanim become the amudim that cover them, and back again. Topic and book
+  // selections need nothing, since their simanim convert when the chart is built.
+  const setUnit = (unit) => {
+    setFormData(prev => {
+      if (prev.unit === unit) return prev;
+      if (prev.selectionMode !== 'custom') return { ...prev, unit };
+
+      if (unit === 'amud') {
+        const amudim = amudRangeForSimanim(prev.startSiman, prev.endSiman);
+        return { ...prev, unit, ...(amudim ? { startAmud: amudim.start, endAmud: amudim.end } : {}) };
+      }
+      const from = amudInfo(prev.startAmud);
+      const to = amudInfo(prev.endAmud);
+      return { ...prev, unit, ...(from && to ? { startSiman: from.siman, endSiman: to.siman } : {}) };
+    });
+  };
   
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -161,6 +198,8 @@ const MishnaBeruraChartForm = () => {
   // Builds the API request for the current selection. Shared by the download
   // and the live preview; returns null while the form is incomplete.
   const buildRequest = () => {
+    const byAmud = formData.unit === 'amud';
+    if (byAmud && formData.selectionMode === 'custom') return buildAmudRangeRequest();
     if (formData.selectionMode === 'topic' && !formData.topic) return null;
     if (formData.selectionMode === 'book' && !formData.chelek) return null;
 
@@ -174,9 +213,18 @@ const MishnaBeruraChartForm = () => {
       startSiman
     );
 
+    // One row per siman, or per amud of the Amud Yomi cycle covering them.
     const pages = [];
-    for (let siman = startSiman; siman <= endSiman; siman++) {
-      pages.push(`${siman}`);
+    if (byAmud) {
+      const amudim = amudRangeForSimanim(startSiman, endSiman);
+      if (!amudim) return null;
+      for (let amud = amudim.start; amud <= amudim.end; amud++) {
+        pages.push(amudLabel(amud));
+      }
+    } else {
+      for (let siman = startSiman; siman <= endSiman; siman++) {
+        pages.push(`${siman}`);
+      }
     }
 
     // Determine the display title and section label for each mode. A custom
@@ -200,6 +248,7 @@ const MishnaBeruraChartForm = () => {
 
     // Prepare request data
     const requestData = {
+      ...(byAmud ? { unit: 'amud' } : {}),
       section: sectionName,
       topic: topicName,
       reviews: Number(formData.reviews),
@@ -213,11 +262,58 @@ const MishnaBeruraChartForm = () => {
 
     return {
       requestData,
-      filename: `${topicName.replace(/\s+/g, '-').toLowerCase()}-mishna-berura-chart`,
+      filename: `${topicName.replace(/\s+/g, '-').toLowerCase()}${byAmud ? '-amud-yomi' : ''}-mishna-berura-chart`,
       excelEndpoint: '/api/mishna-berura-excel',
       pdfEndpoint: '/api/mishna-berura-pdf'
     };
   };
+
+  // A custom range by amud: amudim chosen directly, one row each, labelled
+  // with where the amud starts.
+  function buildAmudRangeRequest() {
+    const clamp = (value, low) => Math.max(Math.min(parseInt(value, 10) || low, AMUD_COUNT), low);
+    const startAmud = clamp(formData.startAmud, 1);
+    const endAmud = clamp(formData.endAmud, startAmud);
+
+    const pages = [];
+    for (let amud = startAmud; amud <= endAmud; amud++) {
+      pages.push(amudLabel(amud));
+    }
+
+    const from = amudInfo(startAmud);
+    const to = amudInfo(endAmud);
+    // The topic doubles as the Excel sheet name, which may not contain ":",
+    // so it names the amudim only; each row already shows its siman:se'if.
+    const wholeChelek = amudChalakim.find((c) => c.start === startAmud && c.end === endAmud);
+    const topicName = wholeChelek
+      ? `${wholeChelek.chelek} - Amud Yomi`
+      : `Amudim ${startAmud}-${endAmud}`;
+    const sectionName = wholeChelek
+      ? ''
+      : from.chelek === to.chelek
+        ? from.chelek
+        : `${from.chelek} - ${to.chelek}`;
+
+    return {
+      requestData: {
+        unit: 'amud',
+        section: sectionName,
+        topic: topicName,
+        reviews: Number(formData.reviews),
+        pages,
+        useHebrew: formData.useHebrew,
+        columnsPerPage: Number(formData.columnsPerPage),
+        includeDateColumn: formData.includeDateColumn,
+        startDate: formData.startDate,
+        skipDays: formData.skipDays
+      },
+      filename: wholeChelek
+        ? `${wholeChelek.chelek.replace(/\s+/g, '-').toLowerCase()}-amud-yomi-mishna-berura-chart`
+        : `amudim-${startAmud}-${endAmud}-mishna-berura-chart`,
+      excelEndpoint: '/api/mishna-berura-excel',
+      pdfEndpoint: '/api/mishna-berura-pdf'
+    };
+  }
 
   // The preview re-renders from the same request the download will send.
   let previewRequest = null;
@@ -311,9 +407,40 @@ const MishnaBeruraChartForm = () => {
                     onClick={() => setFormData(prev => ({ ...prev, selectionMode: 'custom' }))}
                   >
                     <div className="font-medium mb-1">Option 3</div>
-                    <div className="text-sm text-gray-600">Choose any siman range</div>
+                    <div className="text-sm text-gray-600">
+                      {formData.unit === 'amud' ? 'Choose any amud range' : 'Choose any siman range'}
+                    </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Rows: one per siman, or one per amud of the Amud Yomi cycle */}
+              <div className="col-span-1 md:col-span-2">
+                <span className="block text-sm font-medium text-gray-700 mb-2">{t.reviewBy}</span>
+                <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden" role="radiogroup" aria-label={t.reviewBy}>
+                  {[
+                    ['siman', t.bySiman],
+                    ['amud', t.byAmud]
+                  ].map(([unit, label]) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      role="radio"
+                      aria-checked={formData.unit === unit}
+                      onClick={() => setUnit(unit)}
+                      className={`px-4 py-2 text-sm font-medium transition-all ${
+                        formData.unit === unit
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-white text-gray-700 hover:bg-emerald-50'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {formData.unit === 'amud' && (
+                  <p className="mt-2 text-sm text-gray-600">{t.amudHint}</p>
+                )}
               </div>
               
               {/* Book (Chelek) Selection - for Topic and Book modes */}
@@ -365,8 +492,8 @@ const MishnaBeruraChartForm = () => {
                 </div>
               )}
               
-              {/* Custom Siman Range - only for Custom mode */}
-              {formData.selectionMode === 'custom' && (
+              {/* Custom Siman Range - only for Custom mode by siman */}
+              {formData.selectionMode === 'custom' && formData.unit === 'siman' && (
                 <>
                   <div>
                     <label htmlFor="startSiman" className="block text-sm font-medium text-gray-700 mb-2">
@@ -403,6 +530,38 @@ const MishnaBeruraChartForm = () => {
                         {simanInfo(formData.endSiman).heName}
                       </div>
                     )}
+                  </div>
+                </>
+              )}
+
+              {/* Custom Amud Range - only for Custom mode by amud */}
+              {formData.selectionMode === 'custom' && formData.unit === 'amud' && (
+                <>
+                  <div>
+                    <label htmlFor="startAmud" className="block text-sm font-medium text-gray-700 mb-2">
+                      {t.startingAmud}
+                    </label>
+                    <AmudCombobox
+                      id="startAmud"
+                      name="startAmud"
+                      value={Number(formData.startAmud)}
+                      onChange={(startAmud) => setFormData(prev => ({ ...prev, startAmud }))}
+                      labels={t}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="endAmud" className="block text-sm font-medium text-gray-700 mb-2">
+                      {t.endingAmud}
+                    </label>
+                    <AmudCombobox
+                      id="endAmud"
+                      name="endAmud"
+                      value={Number(formData.endAmud)}
+                      onChange={(endAmud) => setFormData(prev => ({ ...prev, endAmud }))}
+                      min={Number(formData.startAmud) || 1}
+                      labels={t}
+                    />
                   </div>
                 </>
               )}
