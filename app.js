@@ -21,11 +21,17 @@ const { workbookToGrid } = require('./lib/excelPreview');
 const { withPerakim } = require('./lib/perakim');
 const perakimData = require('./data/perakimData');
 const { createChartDocument, renderChart, finalizeDocument } = require('./lib/pdfChart');
+const { analyticsProxy } = require('./lib/analyticsProxy');
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
+
+// Self-hosted analytics (Umami), served from this domain. Mounted before the
+// body parser so event payloads stream through to Umami untouched.
+const stats = analyticsProxy();
+if (stats) app.use(stats);
 
 app.use(express.json({ limit: '1mb' }));
 app.use(cors());

@@ -6,6 +6,7 @@ import {
   DocumentTextIcon,
   DocumentArrowDownIcon
 } from '@heroicons/react/24/outline';
+import { trackChartGenerated } from '../../analytics';
 
 // Shared form limits. These must match the bounds enforced in
 // data/chartConfig.js on the server, which clamps anything outside them.
@@ -263,6 +264,7 @@ export const downloadChart = async (endpoint, requestData, filename, format, set
     link.remove();
 
     toast.success('Chart generated successfully!');
+    trackChartGenerated(endpoint, requestData, format);
     return true;
   } catch (error) {
     console.error('Error generating chart:', error);

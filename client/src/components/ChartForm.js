@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLanguage } from './Header';
+import { track } from '../analytics';
 import {
   GemaraChartForm,
   MishnayotChartForm,
@@ -89,7 +90,10 @@ const ChartForm = ({ tractateData, perakimData = {} }) => {
                     name="chartType"
                     value={option.value}
                     checked={chartType === option.value}
-                    onChange={e => setChartType(e.target.value)}
+                    onChange={e => {
+                      setChartType(e.target.value);
+                      track('choose-chart', { chart: e.target.value });
+                    }}
                     className="h-4 w-4 mt-1 text-indigo-600 focus:ring-indigo-500 transition-all"
                   />
                   <div className="ml-3">
