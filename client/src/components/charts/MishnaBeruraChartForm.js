@@ -20,7 +20,7 @@ import ChartPreview from './ChartPreview';
 import mishnaBeruraData, { simanInfo } from './data/mishnaBeruraData';
 import SimanCombobox from './SimanCombobox';
 import AmudCombobox from './AmudCombobox';
-import { AMUD_COUNT, amudChalakim, amudInfo, amudLabel, amudStart } from './data/mishnaBeruraAmudim';
+import { AMUD_COUNT, amudChalakim, amudInfo, amudLabel } from './data/mishnaBeruraAmudim';
 
 // Helper function to create a range of numbers
 const range = (start, end) => {
@@ -524,7 +524,7 @@ const MishnaBeruraChartForm = () => {
                       <option value="">-</option>
                       {amudChalakim.map(({ chelek, start, end }) => (
                         <option key={chelek} value={chelek}>
-                          {chelek} · {t.amud} {start}-{end} ({t.siman} {amudStart(start)} - {amudStart(end)})
+                          {chelek} · {t.amud} {start}-{end}
                         </option>
                       ))}
                     </select>
